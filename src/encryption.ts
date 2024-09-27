@@ -6,18 +6,24 @@
  *
  */
 
-const fs = require('fs');
-const path = require('path');
+import * as fs from 'fs';
+import * as path from 'path';
+import * as openpgp from 'openpgp';
 
-const openpgp = require('openpgp');
+import { KeyPair, KeyPairCreate } from './encryption.dto';
 
-class OpenPGP {
-    constructor({ keysDir } = {}) {
+export class OpenPGP {
+    private readonly keysDir: string;
+    private readonly keysCache: Record<string, KeyPair>;
+
+    constructor({ keysDir }: { keysDir: string }) {
         this.keysDir = keysDir;
         this.keysCache = {};
     }
 
-    async createKeyPair({ userId, email, name, password }) {
+    async createKeyPair(input: KeyPairCreate) {
+        const { userId, email, name, password } = input;
+
         // Create keys
         const { publicKey: armoredPublicKey, privateKey: armoredPrivateKey } = await openpgp.generateKey({
             type: 'ecc',
@@ -36,7 +42,7 @@ class OpenPGP {
         this.keysCache[userId] = { publicKey: publicKey, armoredPrivateKey: armoredPrivateKey };
     }
 
-    async getUserKeys(userId) {
+    async getUserKeys(userId: string): Promise<KeyPair> {
         // Cache hit
         if (userId in this.keysCache) return this.keysCache[userId];
 
@@ -58,7 +64,7 @@ class OpenPGP {
         }
 
         // Cache update
-        const keys = {
+        const keys: KeyPair = {
             publicKey: publicKey,
             armoredPrivateKey: armoredPrivateKey,
         };
@@ -67,7 +73,3 @@ class OpenPGP {
         return keys;
     }
 }
-
-module.exports = {
-    OpenPGP
-};

@@ -1,3 +1,7 @@
+# IDEs
+.vscode
+.idea
+
 # Packages
 node_modules
 
@@ -7,3 +11,7 @@ coverage
 
 # Build
 dist
+build
+
+# Tmp
+tmp

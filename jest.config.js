@@ -6,8 +6,7 @@
  *
  */
 
-const { GitSecretsManager } = require('./managers');
-
 module.exports = {
-    GitSecrets: GitSecretsManager
+    preset: "ts-jest",
+    testEnvironment: "node",
 };

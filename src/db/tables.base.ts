@@ -6,27 +6,36 @@
  *
  */
 
-class BaseUUIDTable {
-    constructor({ db, table }) {
-        this.db = db;
-        this.table = table;
+import Database from 'better-sqlite3';
+
+import { MaybeEmpty } from '@/dto';
+import { BaseUUIDTableConfigs, BaseRelationshipTableConfigs } from './tables.base.dto';
+
+export class BaseUUIDTable {
+    protected readonly db: Database;
+    protected readonly table: string;
+
+    constructor(configs: BaseUUIDTableConfigs) {
+        this.db = configs.db;
+        this.table = configs.table;
     }
 
-    findAll() {
+    findAll(): any[] {
         const stmt = this.db.prepare(`SELECT *
                                       FROM ${this.table};`);
         return stmt.all();
     }
 
-    findOne(id) {
+    findOne(id: string): MaybeEmpty<any> {
         const stmt = this.db.prepare(`SELECT *
                                       FROM ${this.table}
                                       WHERE id = :id
                                       LIMIT 1;`);
-        return stmt.get({ id }) || {};
+        const data = stmt.get({ id }) ?? {};
+        return data as MaybeEmpty<any>;
     }
 
-    remove(id) {
+    remove(id: string) {
         const stmt = this.db.prepare(`DELETE
                                       FROM ${this.table}
                                       WHERE id = :id;`);
@@ -34,22 +43,27 @@ class BaseUUIDTable {
     }
 }
 
-class BaseRelationshipTable {
-    constructor({ db, table, key1, key2 }) {
-        this.db = db;
-        this.table = table;
-        this.key1 = key1;
-        this.key2 = key2;
+export class BaseRelationshipTable {
+    private readonly db: Database;
+    private readonly table: string;
+    private readonly key1: string;
+    private readonly key2: string;
+
+    constructor(configs: BaseRelationshipTableConfigs) {
+        this.db = configs.db;
+        this.table = configs.table;
+        this.key1 = configs.key1;
+        this.key2 = configs.key2;
     }
 
-    findAll() {
+    findAll(): any[] {
         const stmt = this.db.prepare(`SELECT *
                                       FROM ${this.table}
                                       ORDER BY ${this.key1}, ${this.key2};`);
         return stmt.all();
     }
 
-    findAllByKey1({ key1 }) {
+    findAllByKey1({ key1 }: { key1: string }): any[] {
         const stmt = this.db.prepare(`SELECT *
                                       FROM ${this.table}
                                       WHERE ${this.key1} = :value
@@ -57,7 +71,7 @@ class BaseRelationshipTable {
         return stmt.all({ value: key1 });
     }
 
-    findAllByKey2({ key2 }) {
+    findAllByKey2({ key2 }: { key2: string }): any[] {
         const stmt = this.db.prepare(`SELECT *
                                       FROM ${this.table}
                                       WHERE ${this.key2} = :value
@@ -65,7 +79,7 @@ class BaseRelationshipTable {
         return stmt.all({ value: key2 });
     }
 
-    addRelationship({ key1, key2 }) {
+    addRelationship({ key1, key2 }: { key1: string; key2: string }) {
         const stmt = this.db.prepare(`INSERT INTO ${this.table} (${this.key1}, ${this.key2})
                                       VALUES (:value1, :value2)
                                       ON CONFLICT(${this.key1}, ${this.key2})
@@ -73,7 +87,7 @@ class BaseRelationshipTable {
         stmt.run({ value1: key1, value2: key2 });
     }
 
-    removeRelationship({ key1, key2 }) {
+    removeRelationship({ key1, key2 }: { key1: string; key2: string }) {
         const stmt = this.db.prepare(`DELETE
                                       FROM ${this.table}
                                       WHERE ${this.key1} = :value1
@@ -81,8 +95,3 @@ class BaseRelationshipTable {
         stmt.run({ value1: key1, value2: key2 });
     }
 }
-
-module.exports = {
-    BaseUUIDTable,
-    BaseRelationshipTable,
-};
