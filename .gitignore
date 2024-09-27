@@ -1,0 +1,9 @@
+# Packages
+node_modules
+
+# Tests
+coverage.data
+coverage
+
+# Build
+dist
