@@ -11,10 +11,23 @@ import "reflect-metadata"
 import * as yargs from "yargs"
 
 import { InitCommand } from "./commands/init"
+import { UserCommands } from "./commands/users";
+import { TeamCommands } from './commands/teams';
+import { FileCommands } from "./commands/files";
+import { AccessCommands } from "./commands/access";
+import { HideCommand, ShowCommand } from "./commands/main";
+import { KeysCommands } from "./commands/keys";
 
 yargs
     .usage("Usage: $0 <command> [options]")
     .command(new InitCommand())
+    .command(new HideCommand())
+    .command(new ShowCommand())
+    .command(new UserCommands())
+    .command(new TeamCommands())
+    .command(new FileCommands())
+    .command(new AccessCommands())
+    .command(new KeysCommands())
     .recommendCommands()
     .demandCommand(1)
     .strict()

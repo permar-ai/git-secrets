@@ -11,3 +11,4 @@
   - [ ] Diff files using diff tool
 
 - [ ] Merge tooling to resolve merge conflicts
+- [ ] Add file groups with all the same permission -> Faster to add users in

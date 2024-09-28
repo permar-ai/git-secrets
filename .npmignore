@@ -1,0 +1,20 @@
+# CICD
+.github
+
+# Docs
+docs
+TODOs.md
+
+# Build
+tsconfig.json
+tsup.config.ts
+
+# Examples
+examples
+
+# Tests
+tests
+jest.config.js
+
+# Formatting
+.prettierrc

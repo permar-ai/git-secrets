@@ -7,25 +7,30 @@
  */
 
 import * as yargs from 'yargs';
-import * as chalk from 'chalk';
+import chalk from 'chalk';
 
-/**
- * Init git-secret command
- */
+import { Git } from '@/git';
+import { SetupManager } from "@/managers";
+
+const git = new Git();
+
 export class InitCommand implements yargs.CommandModule {
-    command = "init"
-    describe = "Initializes a git-secrets repository at the directory passed in."
+    command = 'init';
+    describe = 'Initialize git-secrets.';
 
     builder(args: yargs.Argv) {
-        return args.option("file", {
-            alias: "f",
-            describe: "Path to the file where your DataSource instance is defined.",
-            demandOption: true,
-        })
+        return args;
     }
 
     async handler(args: yargs.Arguments) {
-        console.log(args);
-        console.log(chalk.green('Initialized'));
+        // Directory
+        const repoDir = git.getRepositoryRootDir();
+
+        // Setup
+        const setupManager = new SetupManager({ repoDir: repoDir })
+        setupManager.directories();
+        setupManager.files();
+        setupManager.database();
+        console.log(chalk.green(`Successfully initialized git-secrets.`));
     }
 }

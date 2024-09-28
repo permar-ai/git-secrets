@@ -1,0 +1,6 @@
+{
+    "readme": "DO NOT MODIFY - GENERATED AUTOMATICALLY",
+    "script": ".githooks/pre-commit.js",
+    "name": "@permar-ai/git-secrets",
+    "version": "1.0.0"
+}

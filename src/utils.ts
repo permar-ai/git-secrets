@@ -6,8 +6,8 @@
  *
  */
 
-import type {PathLike, WriteFileOptions} from 'fs';
-import type {Database as DatabaseType} from 'better-sqlite3';
+import type { PathLike, WriteFileOptions } from 'fs';
+import type { Database as DatabaseType } from 'better-sqlite3';
 
 import * as fs from 'fs';
 
@@ -31,7 +31,7 @@ export function writeFileIfNotExists(file: PathLike, data: string, options?: Wri
     if (!fs.existsSync(file)) fs.writeFileSync(file, data, options);
 }
 
-export function runSQLSequentially(db: Database, sql: string, data: Record<string, any> = {}) {
+export function runSQLSequentially(db: DatabaseType, sql: string, data: Record<string, any> = {}) {
     const statements = sql
         .split(';')
         .slice(0, -1);

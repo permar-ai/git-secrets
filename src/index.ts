@@ -6,6 +6,26 @@
  *
  */
 
-import { GitSecretsManager as GitSecrets } from './managers';
+import chalk from "chalk";
+
+import { Git } from './git';
+import { InternalFileSystem, GitSecretsManager as GitSecrets } from './managers';
+
+const git = new Git();
+
+export function getGitSecrets() {
+    // Directory
+    const repoDir = git.getRepositoryRootDir();
+
+    // Initialization check
+    const fs = new InternalFileSystem({ repoDir: repoDir });
+    if (!fs.isInitialized()) {
+        console.log(chalk.yellow("Please run 'git-secrets init' to get started."));
+        return;
+    }
+
+    // Manager instantiation
+    return new GitSecrets({ repoDir: repoDir });
+}
 
 export { GitSecrets };

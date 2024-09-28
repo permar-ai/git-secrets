@@ -12,7 +12,7 @@ import { BaseTableConfigs } from './tables.base.dto';
 import { FileAccessDto } from './views.dto';
 
 export class FileAccess {
-    private readonly db: Database;
+    private readonly db: InstanceType<typeof Database>;
     private readonly view: string;
 
     constructor(configs: BaseTableConfigs) {

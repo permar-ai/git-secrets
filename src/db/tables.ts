@@ -9,7 +9,7 @@
 import Database from 'better-sqlite3';
 import type { MaybeNull } from '@/dto';
 
-import { uuid } from 'uuidv4';
+import { v4 as uuidv4 } from 'uuid';
 
 import { BaseTableConfigs } from './tables.base.dto';
 import { User, Team, File } from './tables.dto';
@@ -17,7 +17,7 @@ import { KeyValue, UserCreate, TeamCreate, FileCreate, FileUpdate } from './tabl
 import { BaseUUIDTable, BaseRelationshipTable } from './tables.base';
 
 export class Metadata {
-    private readonly db: Database;
+    private readonly db: InstanceType<typeof Database>;
     private readonly table: string;
 
     constructor(configs: BaseTableConfigs) {
@@ -63,7 +63,7 @@ export class Users extends BaseUUIDTable {
     }
 
     create(input: UserCreate): string {
-        const { id = uuid(), email, name } = input;
+        const { id = uuidv4(), email, name } = input;
         const stmt = this.db.prepare(`INSERT INTO ${this.table} (id, email, name)
                                       VALUES (:id, :email, :name);`);
         stmt.run({ id, email, name });
@@ -71,15 +71,15 @@ export class Users extends BaseUUIDTable {
     }
 
     removeByEmail(email: string) {
-        const { id } = this.getByEmail(email);
-        if (!id) return;
-        this.remove(id);
+        const user = this.getByEmail(email);
+        if (!user?.id) return;
+        this.remove(user.id);
     }
 }
 
 export class Teams extends BaseUUIDTable {
-    constructor({ db }) {
-        super({ db: db, table: 'teams' });
+    constructor(configs: BaseTableConfigs) {
+        super({ db: configs.db, table: 'teams' });
     }
 
     getByName(name: string): MaybeNull<Team> {
@@ -91,7 +91,7 @@ export class Teams extends BaseUUIDTable {
     }
 
     create(input: TeamCreate) {
-        const { id = uuid(), name, description } = input;
+        const { id = uuidv4(), name, description } = input;
         const stmt = this.db.prepare(`INSERT INTO ${this.table} (id, name, description)
                                       VALUES (:id, :name, :description);`);
         stmt.run({ id: id, name: name, description: description });
@@ -99,9 +99,9 @@ export class Teams extends BaseUUIDTable {
     }
 
     removeByName(name: string) {
-        const { id } = this.getByName(name);
-        if (!id) return;
-        this.remove(id);
+        const user = this.getByName(name);
+        if (!user?.id) return;
+        this.remove(user.id);
     }
 }
 
@@ -133,7 +133,7 @@ export class Files extends BaseUUIDTable {
     }
 
     create(input: FileCreate): string {
-        const { id = uuid(), path, contents_signature, access_signature } = input;
+        const { id = uuidv4(), path, contents_signature, access_signature } = input;
         const stmt = this.db.prepare(`INSERT INTO ${this.table} (id, path, contents_signature, access_signature)
                                       VALUES (:id, :path, :contents_signature, :access_signature);`);
         stmt.run({ id, path, contents_signature, access_signature });
@@ -157,9 +157,9 @@ export class Files extends BaseUUIDTable {
     }
 
     removeByPath(path: string) {
-        const { id } = this.getByPath(path);
-        if (!id) return;
-        this.remove(id);
+        const file = this.getByPath(path);
+        if (!file?.id) return;
+        this.remove(file.id);
     }
 }
 

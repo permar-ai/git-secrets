@@ -9,7 +9,7 @@
 import Database from 'better-sqlite3';
 
 export interface BaseTableConfigs {
-    db: Database;
+    db: InstanceType<typeof Database>;
 }
 
 export interface BaseUUIDTableConfigs extends BaseTableConfigs {

@@ -12,7 +12,7 @@ import { MaybeEmpty } from '@/dto';
 import { BaseUUIDTableConfigs, BaseRelationshipTableConfigs } from './tables.base.dto';
 
 export class BaseUUIDTable {
-    protected readonly db: Database;
+    protected readonly db: InstanceType<typeof Database>;
     protected readonly table: string;
 
     constructor(configs: BaseUUIDTableConfigs) {
@@ -44,7 +44,7 @@ export class BaseUUIDTable {
 }
 
 export class BaseRelationshipTable {
-    private readonly db: Database;
+    private readonly db: InstanceType<typeof Database>;
     private readonly table: string;
     private readonly key1: string;
     private readonly key2: string;

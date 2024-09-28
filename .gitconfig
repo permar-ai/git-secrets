@@ -1,0 +1,10 @@
+# git configs
+#
+# To add this configuration file to git, execute the following command
+#   - git config --local include.path ../.gitconfig
+#
+# Test:
+#   - git config --get core.hooksPath               -> You should see ".githooks" printed on screen
+
+[core]
+hooksPath = .githooks

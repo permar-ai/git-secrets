@@ -6,12 +6,10 @@
  *
  */
 
-import type {Database as DatabaseType} from 'better-sqlite3';
-
 import * as fs from 'fs';
 import * as path from 'path';
 
-import {uuid} from 'uuidv4';
+import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 import Database from 'better-sqlite3';
 import * as openpgp from 'openpgp';
@@ -20,7 +18,9 @@ import {
     GIT_IGNORE,
     LOCAL_SETTINGS,
     GIT_SECRETS_DIR,
+    DATA_DIR,
     KEYS_DIR,
+    DATA_SIGNATURES_FILENAME,
     LOCAL_SETTINGS_FILENAME,
     DB_FILENAME,
     SECRET_EXT,
@@ -71,44 +71,96 @@ class AccessManager {
     }
 }
 
+export class InternalFileSystem {
+    readonly dirs: { repo: string, gitsecrets: string, keys: string, data: string };
+    readonly files: { settings?: string; localSettings: string; db: string; dataSignatures: string; };
+
+    constructor({ repoDir }: { repoDir: string }) {
+        this.dirs = {
+            repo: repoDir,
+            gitsecrets: path.resolve(repoDir, GIT_SECRETS_DIR),
+            keys: path.resolve(repoDir, GIT_SECRETS_DIR, KEYS_DIR),
+            data: path.resolve(repoDir, GIT_SECRETS_DIR, DATA_DIR),
+        }
+        this.files = {
+            localSettings: path.resolve(this.dirs.gitsecrets, LOCAL_SETTINGS_FILENAME),
+            db: path.resolve(this.dirs.gitsecrets, DB_FILENAME),
+            dataSignatures: path.resolve(this.dirs.data, DATA_SIGNATURES_FILENAME)
+        }
+    }
+
+    isInitialized(): boolean {
+        const initialized = false;
+        if (!fs.existsSync(this.dirs.gitsecrets)) return initialized;
+        if (!fs.existsSync(this.dirs.keys)) return false;
+        if (!fs.existsSync(this.files.localSettings)) return false;
+        if (!fs.existsSync(this.files.db)) return false;
+        return true;
+    }
+}
+
+export class SetupManager {
+    private readonly fs: InternalFileSystem;
+
+    constructor({ repoDir }: { repoDir: string }) {
+        this.fs = new InternalFileSystem({ repoDir });
+    }
+
+    directories() {
+        const dirs = this.fs.dirs;
+        mkdirIfNotExists(dirs.gitsecrets);
+        mkdirIfNotExists(dirs.data);
+        mkdirIfNotExists(dirs.keys);
+    }
+
+    files() {
+        const files = this.fs.files;
+        writeFileIfNotExists(path.resolve(this.fs.dirs.gitsecrets, '.gitignore'), GIT_IGNORE, 'utf-8');
+        writeFileIfNotExists(files.dataSignatures, JSON.stringify({}, null, 4), 'utf-8');
+        writeFileIfNotExists(files.localSettings, JSON.stringify(LOCAL_SETTINGS, null, 4));
+    }
+
+    database() {
+        const db = new Database(this.fs.files.db);
+        db.pragma('foreign_keys = ON');
+        const sqlFileContents = fs.readFileSync(path.resolve(__dirname, 'db', 'schema.sql'), 'utf-8');
+        runSQLSequentially(db, sqlFileContents);
+    }
+}
+
 export class GitSecretsManager {
-    // Constants
-    private readonly rootDir: string;
-    private readonly storageDir: string;
-    private readonly keysDir: string;
-    private readonly settingsFilename: string;
+    // File system
+    readonly fs: InternalFileSystem;
+
+    // Settings
     private settings: any;
+    private localSettings: any;
 
     // Database + Tables
-    private readonly db: DatabaseType;
-    private readonly users: Users;
-    private readonly teams: Teams;
-    private readonly files: Files;
-    private readonly teamMembers: TeamMembers;
+    private readonly db: InstanceType<typeof Database>;
+    readonly users: Users;
+    readonly teams: Teams;
+    readonly files: Files;
+    readonly teamMembers: TeamMembers;
 
     // Encryption
     private readonly openpgp: OpenPGP;
 
     // Managers
-    private readonly access: AccessManager;
+    readonly access: AccessManager;
 
-    constructor({rootDir}: { rootDir: string }) {
-        // Directories and files
-        this.rootDir = rootDir;
-        this.storageDir = path.resolve(this.rootDir, GIT_SECRETS_DIR);
-        this.keysDir = path.resolve(this.storageDir, KEYS_DIR);
-        this.settingsFilename = path.resolve(this.storageDir, LOCAL_SETTINGS_FILENAME);
+    constructor({ repoDir }: { repoDir: string }) {
+        // File system
+        this.fs = new InternalFileSystem({ repoDir: repoDir });
 
-        // Files
-        this.setupFiles();
-        this.settings = fs.existsSync(this.settingsFilename)
-            ? JSON.parse(fs.readFileSync(this.settingsFilename, 'utf-8'))
+        // Settings
+        this.localSettings = fs.existsSync(this.fs.files.localSettings)
+            ? JSON.parse(fs.readFileSync(this.fs.files.localSettings, 'utf-8'))
             : {};
 
         // Database
-        this.db = new Database(path.resolve(this.storageDir, DB_FILENAME));
+        this.db = new Database(this.fs.files.db);
         this.db.pragma('foreign_keys = ON');
-        this.setupDatabase();
 
         // Tables
         this.users = new Users({db: this.db});
@@ -117,39 +169,21 @@ export class GitSecretsManager {
         this.teamMembers = new TeamMembers({db: this.db});
 
         // Encryption
-        this.openpgp = new OpenPGP({keysDir: this.keysDir});
+        this.openpgp = new OpenPGP({ keysDir: this.fs.dirs.keys });
 
         // Managers
         this.access = new AccessManager({db: this.db});
     }
 
-    setupFiles() {
-        // Setup of git secrets folder
-        mkdirIfNotExists(this.storageDir);
-        mkdirIfNotExists(this.keysDir);
-
-        // Files
-        writeFileIfNotExists(path.resolve(this.storageDir, '.gitignore'), GIT_IGNORE, 'utf-8');
-        writeFileIfNotExists(
-            path.resolve(this.storageDir, LOCAL_SETTINGS_FILENAME),
-            JSON.stringify(LOCAL_SETTINGS, null, 4),
-        );
-    }
-
-    setupDatabase() {
-        const sqlFileContents = fs.readFileSync(path.resolve(__dirname, 'db', 'schema.sql'), 'utf-8');
-        runSQLSequentially(this.db, sqlFileContents);
-    }
-
     async updateLocalSettings(email: string) {
         const user = this.users.getByEmail(email);
-        this.settings = {...this.settings, user: user};
-        fs.writeFileSync(this.settingsFilename, JSON.stringify(this.settings, null, 4), 'utf-8');
+        this.localSettings = {...this.localSettings, user: user};
+        fs.writeFileSync(this.fs.files.localSettings, JSON.stringify(this.localSettings, null, 4), 'utf-8');
     }
 
     async addUser(input: UserAdd): Promise<string | null> {
         const {email, name, password} = input;
-        const userId = uuid();
+        const userId = uuidv4();
         const user = this.users.getByEmail(email);
 
         // Existing user
@@ -170,7 +204,7 @@ export class GitSecretsManager {
 
     async addTeam(input: TeamAdd): Promise<string> {
         const {name, description} = input;
-        const teamId = uuid();
+        const teamId = uuidv4();
         const team = this.teams.getByName(name);
 
         // Existing team
@@ -192,7 +226,7 @@ export class GitSecretsManager {
     }
 
     async addFile(path: string): Promise<string | null> {
-        let fileId = uuid();
+        let fileId = uuidv4();
         const file = this.files.getByPath(path);
 
         // Existing file
@@ -228,11 +262,11 @@ export class GitSecretsManager {
     }
 
     async encryptFile(input: EncryptFileInput) {
-        const {userId, password, fileId} = input;
+        const { userId, password, fileId } = input;
 
         // File info
         const file = this.files.findOne(fileId);
-        const filename = path.resolve(this.rootDir, file.path);
+        const filename = path.resolve(this.fs.dirs.repo, file.path);
         if (!fs.existsSync(filename)) {
             console.warn(`WARNING | File requested to be encrypted missing | Filename: ${filename}`);
             return;
@@ -252,7 +286,7 @@ export class GitSecretsManager {
         // Encrypt file
         const fileContents = fs.readFileSync(filename).toString();
         const privateKey = await openpgp.decryptKey({
-            privateKey: await openpgp.readPrivateKey({armoredKey: userKeys.armoredPrivateKey}),
+            privateKey: await openpgp.readPrivateKey({ armoredKey: userKeys.armoredPrivateKey }),
             passphrase: password,
         });
         const message = await openpgp.createMessage({text: fileContents});
@@ -264,7 +298,7 @@ export class GitSecretsManager {
         });
 
         // Write file
-        fs.writeFileSync(path.resolve(this.rootDir, `${file.path}${SECRET_EXT}`), encryptedContents.toString(), 'utf-8');
+        fs.writeFileSync(path.resolve(this.fs.dirs.repo, `${file.path}${SECRET_EXT}`), encryptedContents.toString(), 'utf-8');
     }
 
     async decryptFile(input: DecryptFileInput) {
@@ -272,7 +306,7 @@ export class GitSecretsManager {
 
         // File info + check
         const file = this.files.findOne(fileId);
-        const encryptedFilename = path.resolve(this.rootDir, `${file.path}${SECRET_EXT}`);
+        const encryptedFilename = path.resolve(this.fs.dirs.repo, `${file.path}${SECRET_EXT}`);
         if (!fs.existsSync(encryptedFilename)) {
             console.warn(`WARNING | File requested to be decrypted missing | Filename: ${encryptedFilename}`);
             return;
@@ -305,7 +339,7 @@ export class GitSecretsManager {
         });
 
         // Write to disk
-        fs.writeFileSync(path.resolve(this.rootDir, `${file.path}.decrypted`), decryptedContents.toString(), 'utf-8');
+        fs.writeFileSync(path.resolve(this.fs.dirs.repo, `${file.path}.decrypted`), decryptedContents.toString(), 'utf-8');
     }
 
     async getFileKeys(fileId: string): Promise<KeyPair[]> {
@@ -327,7 +361,7 @@ export class GitSecretsManager {
         const file = this.files.findOne(fileId);
 
         // Contents signature
-        const fileContents = fs.readFileSync(path.resolve(this.rootDir, file.path), 'utf-8');
+        const fileContents = fs.readFileSync(path.resolve(this.fs.dirs.repo, file.path), 'utf-8');
         const contents_signature = crypto.createHash('sha256').update(fileContents).digest('hex');
 
         // Access signature
