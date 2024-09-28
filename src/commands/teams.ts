@@ -8,7 +8,7 @@
 
 import * as yargs from 'yargs';
 
-import { getGitSecrets } from "@/index";
+import { getGitSecrets } from '@/index';
 import { Toast } from './utils';
 
 class TeamAddCommand implements yargs.CommandModule {
@@ -87,13 +87,12 @@ class TeamRemoveCommand implements yargs.CommandModule {
     describe = 'Remove team.';
 
     builder(args: yargs.Argv) {
-        return args
-            .option('name', {
-                alias: 'n',
-                describe: 'Team name',
-                demandOption: true,
-                type: 'string',
-            })
+        return args.option('name', {
+            alias: 'n',
+            describe: 'Team name',
+            demandOption: true,
+            type: 'string',
+        });
     }
 
     async handler(args: yargs.Arguments) {
@@ -108,7 +107,7 @@ class TeamRemoveCommand implements yargs.CommandModule {
 
 export class TeamCommands implements yargs.CommandModule {
     command = 'team <action>';
-    describe = "Commands to add, update and remove teams.";
+    describe = 'Commands to add, update and remove teams.';
 
     builder(args: yargs.Argv) {
         return args
@@ -118,6 +117,5 @@ export class TeamCommands implements yargs.CommandModule {
             .demandCommand(1, 'You need to specify an action (add, update, remove)');
     }
 
-    async handler(args: yargs.Arguments) {
-    }
+    async handler(args: yargs.Arguments) {}
 }

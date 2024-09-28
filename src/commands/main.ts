@@ -25,8 +25,8 @@ export class HideCommand implements yargs.CommandModule {
             .option('file', {
                 alias: 'f',
                 describe: 'Path to a file to hide (flag can be used multiple times)',
-                type: 'array'
-            })
+                type: 'array',
+            });
     }
 
     async handler(args: yargs.Arguments) {
@@ -46,12 +46,11 @@ export class ShowCommand implements yargs.CommandModule {
     describe = 'Decrypt all files that user has access to.';
 
     builder(args: yargs.Argv) {
-        return args
-            .option('file', {
-                alias: 'f',
-                describe: 'Path to a file to show (flag can be used multiple times)',
-                type: 'array'
-            })
+        return args.option('file', {
+            alias: 'f',
+            describe: 'Path to a file to show (flag can be used multiple times)',
+            type: 'array',
+        });
     }
 
     async handler(args: yargs.Arguments) {

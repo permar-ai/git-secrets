@@ -6,23 +6,22 @@
  *
  */
 
-import * as yargs from "yargs";
+import * as yargs from 'yargs';
 
-import {getGitSecrets} from "@/index";
-import {Toast} from "./utils";
+import { getGitSecrets } from '@/index';
+import { Toast } from './utils';
 
 export class UserKeysUpdateCommand implements yargs.CommandModule {
     command = 'keys';
     describe = 'Update the user public and private keys.';
 
     builder(args: yargs.Argv) {
-        return args
-            .option('email', {
-                alias: 'e',
-                describe: "User's email address",
-                demandOption: true,
-                type: 'string',
-            })
+        return args.option('email', {
+            alias: 'e',
+            describe: "User's email address",
+            demandOption: true,
+            type: 'string',
+        });
     }
 
     async handler(args: yargs.Arguments) {
@@ -45,6 +44,5 @@ export class KeysCommands implements yargs.CommandModule {
             .demandCommand(1, 'You need to specify an action (update, remove)');
     }
 
-    async handler(args: yargs.Arguments) {
-    }
+    async handler(args: yargs.Arguments) {}
 }

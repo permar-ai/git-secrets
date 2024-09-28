@@ -10,7 +10,7 @@ import * as yargs from 'yargs';
 import chalk from 'chalk';
 
 import { Git } from '@/git';
-import { SetupManager } from "@/managers";
+import { SetupManager } from '@/managers';
 
 const git = new Git();
 
@@ -27,7 +27,7 @@ export class InitCommand implements yargs.CommandModule {
         const repoDir = git.getRepositoryRootDir();
 
         // Setup
-        const setupManager = new SetupManager({ repoDir: repoDir })
+        const setupManager = new SetupManager({ repoDir: repoDir });
         setupManager.directories();
         setupManager.files();
         setupManager.database();

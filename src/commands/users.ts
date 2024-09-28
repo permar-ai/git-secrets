@@ -9,7 +9,7 @@
 import * as yargs from 'yargs';
 import { prompt } from 'enquirer';
 
-import { getGitSecrets } from "@/index";
+import { getGitSecrets } from '@/index';
 import { Toast } from './utils';
 
 export class UserAddCommand implements yargs.CommandModule {
@@ -42,7 +42,9 @@ export class UserAddCommand implements yargs.CommandModule {
         // Check if user exists
         const user = await gitsecrets.users.getByEmail(email as string);
         if (user) {
-            Toast.warning(`User with email '${email}' already exist.\nTry using the 'git-secrets user update' command.`)
+            Toast.warning(
+                `User with email '${email}' already exist.\nTry using the 'git-secrets user update' command.`,
+            );
             return;
         }
 
@@ -54,7 +56,7 @@ export class UserAddCommand implements yargs.CommandModule {
                 message: 'Enter your password:',
                 validate(value) {
                     return value.length >= 8 ? true : 'Password must be at least 8 characters long';
-                }
+                },
             },
         ]);
 
@@ -62,7 +64,7 @@ export class UserAddCommand implements yargs.CommandModule {
         await gitsecrets.addUser({
             email: args.email as string,
             name: args.name as string,
-            password: answers.password
+            password: answers.password,
         });
         Toast.success(`Added user with email: ${args.email}` + (args.name ? ` and name: ${args.name}.` : '.'));
     }
@@ -91,7 +93,7 @@ export class UserUpdateCommand implements yargs.CommandModule {
                 describe: 'New user name',
                 demandOption: false,
                 type: 'string',
-            })
+            });
     }
 
     async handler(args: yargs.Arguments) {
@@ -109,13 +111,12 @@ export class UserRemoveCommand implements yargs.CommandModule {
     describe = 'Remove user.';
 
     builder(args: yargs.Argv) {
-        return args
-            .option('email', {
-                alias: 'e',
-                describe: "User's email address",
-                demandOption: true,
-                type: 'string',
-            })
+        return args.option('email', {
+            alias: 'e',
+            describe: "User's email address",
+            demandOption: true,
+            type: 'string',
+        });
     }
 
     async handler(args: yargs.Arguments) {
@@ -130,7 +131,7 @@ export class UserRemoveCommand implements yargs.CommandModule {
 
 export class UserCommands implements yargs.CommandModule {
     command = 'user <action>';
-    describe = "Commands to add, update and remove users.";
+    describe = 'Commands to add, update and remove users.';
 
     builder(args: yargs.Argv) {
         return args
@@ -140,8 +141,5 @@ export class UserCommands implements yargs.CommandModule {
             .demandCommand(1, 'You need to specify an action (add, update, remove)');
     }
 
-    async handler(args: yargs.Arguments) {
-    }
+    async handler(args: yargs.Arguments) {}
 }
-
-

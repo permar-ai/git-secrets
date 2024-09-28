@@ -8,8 +8,8 @@
 
 import * as yargs from 'yargs';
 
-import {getGitSecrets} from "@/index";
-import {Toast} from './utils';
+import { getGitSecrets } from '@/index';
+import { Toast } from './utils';
 
 class AccessAddCommand implements yargs.CommandModule {
     command = 'add';
@@ -34,7 +34,7 @@ class AccessAddCommand implements yargs.CommandModule {
                 describe: 'Team name (flag can be used multiple times)',
                 demandOption: false,
                 type: 'array',
-            })
+            });
     }
 
     async handler(args: yargs.Arguments) {
@@ -70,7 +70,7 @@ class AccessRemoveCommand implements yargs.CommandModule {
                 describe: 'Team name (flag can be used multiple times)',
                 demandOption: false,
                 type: 'array',
-            })
+            });
     }
 
     async handler(args: yargs.Arguments) {
@@ -85,7 +85,7 @@ class AccessRemoveCommand implements yargs.CommandModule {
 
 export class AccessCommands implements yargs.CommandModule {
     command = 'access <action>';
-    describe = "Commands to add, update and remove teams.";
+    describe = 'Commands to add, update and remove teams.';
 
     builder(args: yargs.Argv) {
         return args
@@ -94,6 +94,5 @@ export class AccessCommands implements yargs.CommandModule {
             .demandCommand(1, 'You need to specify an action (add, remove)');
     }
 
-    async handler(args: yargs.Arguments) {
-    }
+    async handler(args: yargs.Arguments) {}
 }

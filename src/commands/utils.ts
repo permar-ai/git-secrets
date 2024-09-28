@@ -6,7 +6,7 @@
  *
  */
 
-import chalk from "chalk";
+import chalk from 'chalk';
 
 export class Toast {
     static success(message: string) {

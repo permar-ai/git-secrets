@@ -8,7 +8,7 @@
 
 import * as yargs from 'yargs';
 
-import { getGitSecrets } from "@/index";
+import { getGitSecrets } from '@/index';
 import { Git } from '@/git';
 import { Toast } from './utils';
 
@@ -17,13 +17,12 @@ class FileAddCommand implements yargs.CommandModule {
     describe = 'Add a new file.';
 
     builder(args: yargs.Argv) {
-        return args
-            .option('path', {
-                alias: 'p',
-                describe: 'Path of the file',
-                demandOption: true,
-                type: 'string',
-            })
+        return args.option('path', {
+            alias: 'p',
+            describe: 'Path of the file',
+            demandOption: true,
+            type: 'string',
+        });
     }
 
     async handler(args: yargs.Arguments) {
@@ -58,7 +57,7 @@ class FileUpdateCommand implements yargs.CommandModule {
                 describe: 'Updated file path',
                 demandOption: true,
                 type: 'string',
-            })
+            });
     }
 
     async handler(args: yargs.Arguments) {
@@ -76,13 +75,12 @@ class FileRemoveCommand implements yargs.CommandModule {
     describe = 'Remove file.';
 
     builder(args: yargs.Argv) {
-        return args
-            .option('path', {
-                alias: 'p',
-                describe: 'File path',
-                demandOption: true,
-                type: 'string',
-            })
+        return args.option('path', {
+            alias: 'p',
+            describe: 'File path',
+            demandOption: true,
+            type: 'string',
+        });
     }
 
     async handler(args: yargs.Arguments) {
@@ -97,7 +95,7 @@ class FileRemoveCommand implements yargs.CommandModule {
 
 export class FileCommands implements yargs.CommandModule {
     command = 'file <action>';
-    describe = "Commands to add, update and remove files.";
+    describe = 'Commands to add, update and remove files.';
 
     builder(args: yargs.Argv) {
         return args
@@ -107,6 +105,5 @@ export class FileCommands implements yargs.CommandModule {
             .demandCommand(1, 'You need to specify an action (add, update, remove)');
     }
 
-    async handler(args: yargs.Arguments) {
-    }
+    async handler(args: yargs.Arguments) {}
 }
