@@ -14,31 +14,37 @@ import { BaseUUIDTableConfigs, BaseRelationshipTableConfigs } from './tables.bas
 export class BaseUUIDTable {
     protected readonly db: InstanceType<typeof Database>;
     protected readonly table: string;
+    protected readonly sortBy: string | undefined;
 
     constructor(configs: BaseUUIDTableConfigs) {
         this.db = configs.db;
         this.table = configs.table;
+        this.sortBy = configs.sortBy;
     }
 
     findAll(): any[] {
-        const stmt = this.db.prepare(`SELECT *
-                                      FROM ${this.table};`);
+        const cmd =
+            `SELECT *
+                     FROM ${this.table}` + (this.sortBy ? ` ORDER BY ${this.sortBy} ASC;` : ';');
+        const stmt = this.db.prepare(cmd);
         return stmt.all();
     }
 
     findOne(id: string): MaybeEmpty<any> {
-        const stmt = this.db.prepare(`SELECT *
-                                      FROM ${this.table}
-                                      WHERE id = :id
-                                      LIMIT 1;`);
+        const cmd = `SELECT *
+                     FROM ${this.table}
+                     WHERE id = :id
+                     LIMIT 1;`;
+        const stmt = this.db.prepare(cmd);
         const data = stmt.get({ id }) ?? {};
         return data as MaybeEmpty<any>;
     }
 
     remove(id: string) {
-        const stmt = this.db.prepare(`DELETE
-                                      FROM ${this.table}
-                                      WHERE id = :id;`);
+        const cmd = `DELETE
+                     FROM ${this.table}
+                     WHERE id = :id;`;
+        const stmt = this.db.prepare(cmd);
         stmt.run({ id });
     }
 }
@@ -57,41 +63,46 @@ export class BaseRelationshipTable {
     }
 
     findAll(): any[] {
-        const stmt = this.db.prepare(`SELECT *
-                                      FROM ${this.table}
-                                      ORDER BY ${this.key1}, ${this.key2};`);
+        const cmd = `SELECT *
+                     FROM ${this.table}
+                     ORDER BY ${this.key1}, ${this.key2};`;
+        const stmt = this.db.prepare(cmd);
         return stmt.all();
     }
 
     findAllByKey1({ key1 }: { key1: string }): any[] {
-        const stmt = this.db.prepare(`SELECT *
-                                      FROM ${this.table}
-                                      WHERE ${this.key1} = :value
-                                      ORDER BY ${this.key1}, ${this.key2};`);
+        const cmd = `SELECT *
+                     FROM ${this.table}
+                     WHERE ${this.key1} = :value
+                     ORDER BY ${this.key1}, ${this.key2};`;
+        const stmt = this.db.prepare(cmd);
         return stmt.all({ value: key1 });
     }
 
     findAllByKey2({ key2 }: { key2: string }): any[] {
-        const stmt = this.db.prepare(`SELECT *
-                                      FROM ${this.table}
-                                      WHERE ${this.key2} = :value
-                                      ORDER BY ${this.key1}, ${this.key2};`);
+        const cmd = `SELECT *
+                     FROM ${this.table}
+                     WHERE ${this.key2} = :value
+                     ORDER BY ${this.key1}, ${this.key2};`;
+        const stmt = this.db.prepare(cmd);
         return stmt.all({ value: key2 });
     }
 
     addRelationship({ key1, key2 }: { key1: string; key2: string }) {
-        const stmt = this.db.prepare(`INSERT INTO ${this.table} (${this.key1}, ${this.key2})
-                                      VALUES (:value1, :value2)
-                                      ON CONFLICT(${this.key1}, ${this.key2})
-                                          DO NOTHING;`);
+        const cmd = `INSERT INTO ${this.table} (${this.key1}, ${this.key2})
+                     VALUES (:value1, :value2)
+                     ON CONFLICT(${this.key1}, ${this.key2})
+                         DO NOTHING;`;
+        const stmt = this.db.prepare(cmd);
         stmt.run({ value1: key1, value2: key2 });
     }
 
     removeRelationship({ key1, key2 }: { key1: string; key2: string }) {
-        const stmt = this.db.prepare(`DELETE
-                                      FROM ${this.table}
-                                      WHERE ${this.key1} = :value1
-                                        AND ${this.key2} = :value2;`);
+        const cmd = `DELETE
+                     FROM ${this.table}
+                     WHERE ${this.key1} = :value1
+                       AND ${this.key2} = :value2;`;
+        const stmt = this.db.prepare(cmd);
         stmt.run({ value1: key1, value2: key2 });
     }
 }

@@ -14,6 +14,7 @@ export interface BaseTableConfigs {
 
 export interface BaseUUIDTableConfigs extends BaseTableConfigs {
     table: string;
+    sortBy?: string;
 }
 
 export interface BaseRelationshipTableConfigs extends BaseTableConfigs {

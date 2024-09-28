@@ -10,7 +10,46 @@ import * as yargs from 'yargs';
 import { prompt } from 'enquirer';
 
 import { getGitSecrets } from '@/index';
-import { Toast } from './utils';
+import { Markdown, Toast } from './utils';
+
+class UserListCommand implements yargs.CommandModule {
+    command = 'list';
+    describe = 'List users.';
+
+    builder(args: yargs.Argv) {
+        return args.option('search', {
+            alias: 's',
+            describe: 'Search string',
+            demandOption: false,
+            type: 'string',
+        });
+    }
+
+    async handler(args: yargs.Arguments) {
+        let { search } = args;
+
+        // Client
+        const gitsecrets = getGitSecrets();
+        if (!gitsecrets) return;
+
+        // List teams
+        let users = gitsecrets.users.findAll();
+        if (typeof search === 'string') {
+            const searchStr = search.toLowerCase();
+            users = users.filter(
+                (team) => team.email.toLowerCase().includes(searchStr) || team.name?.toLowerCase().includes(searchStr),
+            );
+        }
+
+        // Check any users have been found
+        if (users.length === 0) {
+            Toast.warning('No users found' + (search ? ` with search query '${search}'.` : '.'));
+            return;
+        }
+        const table = Markdown.table(users, ['email', 'name']);
+        console.log(`***** Users *****\n\n${table}`);
+    }
+}
 
 export class UserAddCommand implements yargs.CommandModule {
     command = 'add';
@@ -53,20 +92,20 @@ export class UserAddCommand implements yargs.CommandModule {
             {
                 type: 'password',
                 name: 'password',
-                message: 'Enter your password:',
+                message: 'Enter your password (min. 16 characters):',
                 validate(value) {
-                    return value.length >= 8 ? true : 'Password must be at least 8 characters long';
+                    return value.length >= 16 ? true : 'Password must be at least 16 characters long';
                 },
             },
         ]);
 
         // Create user
         await gitsecrets.addUser({
-            email: args.email as string,
-            name: args.name as string,
+            email: email as string,
+            name: name as string,
             password: answers.password,
         });
-        Toast.success(`Added user with email: ${args.email}` + (args.name ? ` and name: ${args.name}.` : '.'));
+        Toast.success(`Successfully added user with email: '${email}'` + (name ? ` and name: '${name}'.` : '.'));
     }
 }
 
@@ -135,6 +174,7 @@ export class UserCommands implements yargs.CommandModule {
 
     builder(args: yargs.Argv) {
         return args
+            .command(new UserListCommand())
             .command(new UserAddCommand())
             .command(new UserUpdateCommand())
             .command(new UserRemoveCommand())

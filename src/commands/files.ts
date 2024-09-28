@@ -10,7 +10,44 @@ import * as yargs from 'yargs';
 
 import { getGitSecrets } from '@/index';
 import { Git } from '@/git';
-import { Toast } from './utils';
+import { Markdown, Toast } from './utils';
+
+class FileListCommand implements yargs.CommandModule {
+    command = 'list';
+    describe = 'List files.';
+
+    builder(args: yargs.Argv) {
+        return args.option('search', {
+            alias: 's',
+            describe: 'Search string',
+            demandOption: false,
+            type: 'string',
+        });
+    }
+
+    async handler(args: yargs.Arguments) {
+        let { search } = args;
+
+        // Client
+        const gitsecrets = getGitSecrets();
+        if (!gitsecrets) return;
+
+        // List teams
+        let files = gitsecrets.files.findAll();
+        if (typeof search === 'string') {
+            const searchStr = search.toLowerCase();
+            files = files.filter((file) => file.path.toLowerCase().includes(searchStr));
+        }
+
+        // Check any users have been found
+        if (files.length === 0) {
+            Toast.warning('No files found' + (search ? ` with search query '${search}'.` : '.'));
+            return;
+        }
+        const table = Markdown.table(files, ['path']);
+        console.log(`***** Files *****\n\n${table}`);
+    }
+}
 
 class FileAddCommand implements yargs.CommandModule {
     command = 'add';
@@ -99,6 +136,7 @@ export class FileCommands implements yargs.CommandModule {
 
     builder(args: yargs.Argv) {
         return args
+            .command(new FileListCommand())
             .command(new FileAddCommand())
             .command(new FileUpdateCommand())
             .command(new FileRemoveCommand())

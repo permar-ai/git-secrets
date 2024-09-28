@@ -26,47 +26,49 @@ export class Metadata {
     }
 
     get(key: string): MaybeNull<KeyValue> {
-        const stmt = this.db.prepare(`SELECT *
-                                      FROM ${this.table}
-                                      WHERE key = : key
-                                          LIMIT 1;`);
+        const cmd = `SELECT *
+                     FROM ${this.table}
+                     WHERE key = : key
+                     LIMIT 1;`;
+        const stmt = this.db.prepare(cmd);
         return <MaybeNull<KeyValue>>stmt.get({ key: key });
     }
 
     create(input: KeyValue) {
         const { key, value } = input;
-        const stmt = this.db.prepare(`INSERT INTO ${this.table} (key, value)
-                                      VALUES (:key, :value);`);
-        stmt.run({ key: key, value: value });
+        const cmd = `INSERT INTO ${this.table} (key, value)
+                     VALUES (:key, :value);`;
+        this.db.prepare(cmd).run({ key: key, value: value });
     }
 
     update(input: KeyValue) {
         const { key, value } = input;
-        const stmt = this.db.prepare(`UPDATE ${this.table}
-                                      SET value = :value
-                                      WHERE key = : key`);
-        stmt.run({ key: key, value: value });
+        const cmd = `UPDATE ${this.table}
+                     SET value = :value
+                     WHERE key = : key`;
+        this.db.prepare(cmd).run({ key: key, value: value });
     }
 }
 
 export class Users extends BaseUUIDTable {
     constructor(configs: BaseTableConfigs) {
-        super({ db: configs.db, table: 'users' });
+        super({ db: configs.db, table: 'users', sortBy: 'email' });
     }
 
     getByEmail(email: string): MaybeNull<User> {
-        const stmt = this.db.prepare(`SELECT *
-                                      FROM ${this.table}
-                                      WHERE email = :email LIMIT 1;`);
-        const data = stmt.get({ email }) ?? null;
+        const cmd = `SELECT *
+                     FROM ${this.table}
+                     WHERE email = :email
+                     LIMIT 1;`;
+        const data = this.db.prepare(cmd).get({ email }) ?? null;
         return data as MaybeNull<User>;
     }
 
     create(input: UserCreate): string {
         const { id = uuidv4(), email, name } = input;
-        const stmt = this.db.prepare(`INSERT INTO ${this.table} (id, email, name)
-                                      VALUES (:id, :email, :name);`);
-        stmt.run({ id, email, name });
+        const cmd = `INSERT INTO ${this.table} (id, email, name)
+                     VALUES (:id, :email, :name);`;
+        this.db.prepare(cmd).run({ id, email, name });
         return id;
     }
 
@@ -79,22 +81,23 @@ export class Users extends BaseUUIDTable {
 
 export class Teams extends BaseUUIDTable {
     constructor(configs: BaseTableConfigs) {
-        super({ db: configs.db, table: 'teams' });
+        super({ db: configs.db, table: 'teams', sortBy: 'name' });
     }
 
     getByName(name: string): MaybeNull<Team> {
-        const stmt = this.db.prepare(`SELECT *
-                                      FROM ${this.table}
-                                      WHERE name = :name LIMIT 1;`);
-        const data = stmt.get({ name }) ?? null;
+        const cmd = `SELECT *
+                     FROM ${this.table}
+                     WHERE name = :name
+                     LIMIT 1;`;
+        const data = this.db.prepare(cmd).get({ name }) ?? null;
         return data as MaybeNull<Team>;
     }
 
     create(input: TeamCreate) {
         const { id = uuidv4(), name, description } = input;
-        const stmt = this.db.prepare(`INSERT INTO ${this.table} (id, name, description)
-                                      VALUES (:id, :name, :description);`);
-        stmt.run({ id: id, name: name, description: description });
+        const cmd = `INSERT INTO ${this.table} (id, name, description)
+                     VALUES (:id, :name, :description);`;
+        this.db.prepare(cmd).run({ id: id, name: name, description: description });
         return id;
     }
 
@@ -121,22 +124,23 @@ export class TeamMembers extends BaseRelationshipTable {
 
 export class Files extends BaseUUIDTable {
     constructor(configs: BaseTableConfigs) {
-        super({ db: configs.db, table: 'files' });
+        super({ db: configs.db, table: 'files', sortBy: 'path' });
     }
 
     getByPath(path: string): MaybeNull<File> {
-        const stmt = this.db.prepare(`SELECT *
-                                      FROM ${this.table}
-                                      WHERE path = :path LIMIT 1;`);
-        const data = stmt.get({ path }) ?? null;
+        const cmd = `SELECT *
+                     FROM ${this.table}
+                     WHERE path = :path
+                     LIMIT 1;`;
+        const data = this.db.prepare(cmd).get({ path }) ?? null;
         return data as MaybeNull<File>;
     }
 
     create(input: FileCreate): string {
         const { id = uuidv4(), path, contents_signature, access_signature } = input;
-        const stmt = this.db.prepare(`INSERT INTO ${this.table} (id, path, contents_signature, access_signature)
-                                      VALUES (:id, :path, :contents_signature, :access_signature);`);
-        stmt.run({ id, path, contents_signature, access_signature });
+        const cmd = `INSERT INTO ${this.table} (id, path, contents_signature, access_signature)
+                     VALUES (:id, :path, :contents_signature, :access_signature);`;
+        this.db.prepare(cmd).run({ id, path, contents_signature, access_signature });
         return id;
     }
 
@@ -150,10 +154,10 @@ export class Files extends BaseUUIDTable {
         ];
         const updateStmt = updateStatements.filter((_, idx) => variables[idx]).join(', ');
 
-        const stmt = this.db.prepare(`UPDATE ${this.table}
-                                      SET ${updateStmt}
-                                      WHERE id = :id`);
-        stmt.run({ id, contents_signature, access_signature });
+        const cmd = `UPDATE ${this.table}
+                     SET ${updateStmt}
+                     WHERE id = :id`;
+        this.db.prepare(cmd).run({ id, contents_signature, access_signature });
     }
 
     removeByPath(path: string) {

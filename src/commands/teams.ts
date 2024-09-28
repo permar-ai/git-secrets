@@ -9,7 +9,47 @@
 import * as yargs from 'yargs';
 
 import { getGitSecrets } from '@/index';
-import { Toast } from './utils';
+import { Toast, Markdown } from './utils';
+
+class TeamListCommand implements yargs.CommandModule {
+    command = 'list';
+    describe = 'List teams.';
+
+    builder(args: yargs.Argv) {
+        return args.option('search', {
+            alias: 's',
+            describe: 'Search string',
+            demandOption: false,
+            type: 'string',
+        });
+    }
+
+    async handler(args: yargs.Arguments) {
+        let { search } = args;
+
+        // Client
+        const gitsecrets = getGitSecrets();
+        if (!gitsecrets) return;
+
+        // List teams
+        let teams = gitsecrets.teams.findAll();
+        if (typeof search === 'string') {
+            const searchStr = search.toLowerCase();
+            teams = teams.filter(
+                (team) =>
+                    team.name.toLowerCase().includes(searchStr) || team.description?.toLowerCase().includes(searchStr),
+            );
+        }
+
+        // Check any teams have been found
+        if (teams.length === 0) {
+            Toast.warning('No teams found' + (search ? ` with search query '${search}'.` : '.'));
+            return;
+        }
+        const table = Markdown.table(teams, ['name', 'description']);
+        console.log(`***** Teams *****\n\n${table}`);
+    }
+}
 
 class TeamAddCommand implements yargs.CommandModule {
     command = 'add';
@@ -42,7 +82,10 @@ class TeamAddCommand implements yargs.CommandModule {
             name: name as string,
             description: description as string,
         });
-        Toast.success(`Added team with name: '${name}'` + (description ? ` and description: '${description}.` : '.'));
+        Toast.success(
+            `Successfully added team with name: '${name}'` +
+                (description ? ` and description: '${description}'.` : '.'),
+        );
     }
 }
 
@@ -111,6 +154,7 @@ export class TeamCommands implements yargs.CommandModule {
 
     builder(args: yargs.Argv) {
         return args
+            .command(new TeamListCommand())
             .command(new TeamAddCommand())
             .command(new TeamUpdateCommand())
             .command(new TeamRemoveCommand())
