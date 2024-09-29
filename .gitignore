@@ -17,5 +17,6 @@ build
 tmp
 
 # git-secrets
+examples
 examples/example.js
-examples/example.txt
+test/value

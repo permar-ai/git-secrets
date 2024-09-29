@@ -22,22 +22,26 @@ import { execSync } from 'child_process';
 const GITSECRETS_COMMENT_REGEX = /^#\s*git-secrets\s*$/;
 const EMPTY_LINE_REGEX = /^\s?$/;
 
-export class Git {
-    constructor() {}
+function executeCmd(command: string, defaultValue: any = null) {
+    try {
+        const output = execSync(command, { stdio: 'pipe' }).toString();
+        if (output.toLowerCase().includes('error')) return defaultValue;
+        return output.toString().split('\n').filter(Boolean);
+    } catch (err) {
+        return defaultValue;
+    }
+}
 
-    executeCmd(command: string, defaultValue: any = null) {
-        try {
-            const output = execSync(command, { stdio: 'pipe' }).toString();
-            if (output.toLowerCase().includes('error')) return defaultValue;
-            return output.toString().split('\n').filter(Boolean);
-        } catch (err) {
-            return defaultValue;
-        }
+export class Git {
+    readonly ignore: GitIgnore;
+
+    constructor() {
+        this.ignore = new GitIgnore({ repoDir: this.getRepositoryRootDir() });
     }
 
     getRepositoryRootDir() {
         const command = 'git rev-parse --show-toplevel';
-        const response = this.executeCmd(command, []);
+        const response = executeCmd(command, []);
         if (response.length === 1) return response[0];
         throw new Error('Initialize a git repository first');
     }
@@ -52,24 +56,24 @@ export class Git {
     listStagedFiles(extension?: string): string[] {
         const extensionFilter = extension ? `-- '***.${extension}'` : '';
         const command = `git diff --cached --name-only ${extensionFilter}`;
-        return this.executeCmd(command, []);
+        return executeCmd(command, []);
     }
 
     listUnstagedFiles(extension?: string): string[] {
         const extensionFilter = extension ? `-- '*.${extension}'` : '';
         const command = `git diff --name-only ${extensionFilter}`;
-        return this.executeCmd(command, []);
+        return executeCmd(command, []);
     }
 
     isFileStaged(filename: string): boolean {
         const command = `git diff --cached --name-only ${filename}`;
-        const files = this.executeCmd(command, []);
+        const files = executeCmd(command, []);
         return files.length === 1;
     }
 
     isFileUnstaged(filename: string): boolean {
         const command = `git diff --name-only ${filename}`;
-        const files = this.executeCmd(command, []);
+        const files = executeCmd(command, []);
         return files.length === 1;
     }
 
@@ -86,42 +90,51 @@ export class Git {
         const unstagedChange = this.isFileUnstaged(filename);
         return stagedChange || unstagedChange;
     }
+}
 
-    addToGitIgnore(filepath: string) {
-        const repoDir = this.getRepositoryRootDir();
-        const relativePath = this.getRelativePath(filepath);
-        const gitignore = path.resolve(repoDir, '.gitignore');
+class GitIgnore {
+    private readonly repoDir: string;
+    constructor({ repoDir }: { repoDir: string }) {
+        this.repoDir = repoDir;
+    }
+
+    addEntry(relativePath: string, negated: boolean = false) {
+        // Read contents
+        const gitignore = path.resolve(this.repoDir, '.gitignore');
         if (!fs.existsSync(gitignore)) fs.writeFileSync(gitignore, '', 'utf-8');
+        const lines = fs.readFileSync(gitignore, 'utf-8').split('\n');
 
         // Retrieve git-secrets block
-        const lines = fs.readFileSync(gitignore, 'utf-8').split('\n');
-        const { before, gitSecrets, after } = this.parseGitignore(lines);
+        const { before, gitSecrets, after } = this.parse(lines);
 
-        // Append file if not in list
-        // TODO: Add support for existing directory ignores
-        const escapedPath = relativePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Append file if not present
+        const pathEntry = negated ? '!' + relativePath : relativePath;
+        let escapedPath = pathEntry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const filepathRegex = new RegExp(`^\\.?\\/?.*${escapedPath}\\s*(#.*)?$`);
-        if (!gitSecrets.some((entry) => filepathRegex.test(entry))) {
-            gitSecrets.push(relativePath);
-        }
+
+        // Single file in/exclusion + Directory in/exclusion
+        let entryPresent = false;
+        if (gitSecrets.some((entry) => filepathRegex.test(entry))) entryPresent = true;
+        if (gitSecrets.some((entry) => pathEntry.startsWith(entry + (entry.endsWith('/') ? '' : '/'))))
+            entryPresent = true;
+        if (!entryPresent) gitSecrets.push(pathEntry);
 
         // Write file
         const gitIgnoreOut = [...before, gitSecrets[0], ...gitSecrets.slice(1).sort(), ...after].join('\n');
         fs.writeFileSync(gitignore, gitIgnoreOut, 'utf-8');
     }
 
-    removeFromGitIgnore(filepath: string) {
-        const repoDir = this.getRepositoryRootDir();
-        const relativePath = this.getRelativePath(filepath);
-        const gitignore = path.resolve(repoDir, relativePath);
+    removeEntry(relativePath: string, negated: boolean = false) {
+        const gitignore = path.resolve(this.repoDir, relativePath);
         if (!fs.existsSync(gitignore)) return;
 
         // Retrieve git-secrets block
         const lines = fs.readFileSync(gitignore, 'utf-8').split('\n');
-        const { before, gitSecrets, after } = this.parseGitignore(lines);
+        const { before, gitSecrets, after } = this.parse(lines);
 
-        // Remove file if in list
-        const escapedPath = relativePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Remove file if present
+        const pathEntry = negated ? '!' + relativePath : relativePath;
+        let escapedPath = pathEntry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const filepathRegex = new RegExp(`^\\.?\\/?.*${escapedPath}\\s*(#.*)?$`);
         const gitSecretsUpdated = gitSecrets.filter((entry) => !filepathRegex.test(entry));
 
@@ -130,7 +143,7 @@ export class Git {
         fs.writeFileSync(gitignore, gitIgnoreOut, 'utf-8');
     }
 
-    parseGitignore(lines: string[]) {
+    parse(lines: string[]) {
         // Identify line with '# git-secrets' comment and next empty line
         let start = null;
         let end = null;

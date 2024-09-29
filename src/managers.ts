@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 import Database from 'better-sqlite3';
 import * as openpgp from 'openpgp';
+import { PublicKey } from 'openpgp';
 
 import { GIT_IGNORE, LOCAL_SETTINGS, SECRET_EXT } from './constants';
 import { InternalFileSystem } from './io';
@@ -29,8 +30,8 @@ import {
     TeamAdd,
     TeamMemberAdd,
     FileAccessAdd,
-    EncryptFileInput,
-    DecryptFileInput,
+    CryptoOpInput,
+    CryptoOpPrivateInput,
     UserKeyUpdate,
 } from './managers.dto';
 
@@ -221,19 +222,20 @@ export class GitSecretsManager {
         return toSuccess({});
     }
 
-    async addFile(path: string): Promise<Response<{ id: string }>> {
+    async addFile(path: string): Promise<Response<{ id: string; path: string }>> {
         let fileId = uuidv4();
-        const file = this.files.getByPath(path);
+        const relativePath = git.getRelativePath(path);
+        const file = this.files.getByPath(relativePath);
 
         // Existing file
-        if (file) return toWarning(`File with path '${path}' already exists.`);
+        if (file) return toWarning(`File with path '${relativePath}' already exists.`);
 
         // New file
         try {
             this.files.create({ id: fileId, path, contentsSignature: 'SETUP', accessSignature: 'SETUP' });
             this.updateFileSignatures(fileId);
-            git.addToGitIgnore(path);
-            return toSuccess({ id: fileId });
+            git.ignore.addEntry(relativePath);
+            return toSuccess({ id: fileId, path: relativePath });
         } catch (err) {
             console.error(err);
             return toError(err);
@@ -278,41 +280,76 @@ export class GitSecretsManager {
         const filesUsers = fileIds.flatMap((f) => userIds.map((u) => [f, u]));
         const filesTeams = fileIds.flatMap((f) => teamIds.map((t) => [f, t]));
 
-        console.log(filesUsers);
-        console.log(filesTeams);
-
         // Add access
         filesUsers.map(([fileId, userId]) => this.access.add({ fileId: fileId, userId: userId }));
         filesTeams.map(([fileId, teamId]) => this.access.add({ fileId: fileId, teamId: teamId }));
         return toSuccess({});
     }
 
-    async encryptFile(input: EncryptFileInput) {
-        const { userId, password, fileId } = input;
+    async encryptFile(input: CryptoOpInput): Promise<Response<{}>> {
+        return await this.cryptoOperationOnFile('encrypt', input);
+    }
 
-        // File info
-        const file = this.files.findOne(fileId);
-        const filename = path.resolve(this.fs.dirs.repo, file.path);
-        if (!fs.existsSync(filename)) {
-            console.warn(`WARNING | File requested to be encrypted missing | Filename: ${filename}`);
-            return;
-        }
+    async decryptFile(input: CryptoOpInput): Promise<Response<{}>> {
+        return await this.cryptoOperationOnFile('decrypt', input);
+    }
+
+    private async cryptoOperationOnFile(operation: string, input: CryptoOpInput): Promise<Response<{}>> {
+        const { path, email, password } = input;
+        const op = operation.toLowerCase();
+
+        // File and user
+        const relativePath = git.getRelativePath(path);
+        const file = this.files.getByPath(relativePath);
+        const user = this.users.getByEmail(email);
+        if (!file) return toError(`File with path '${relativePath}' does not exist.`);
+        if (!user) return toError(`User with email '${email}' does not exist.`);
 
         // Public keys of all users with access to the file
-        const keys = await this.getFileKeys(fileId);
-        const publicKeys = keys.map((keys) => keys.publicKey).filter((key) => key !== undefined);
+        const keys = await this.getFileKeys(file.id);
+        const publicKeys = keys.map((keys) => keys.publicKey).filter((key) => key !== undefined) as PublicKey[];
 
-        // Keys of user performing the encryption
-        const userKeys = await this.openpgp.getUserKeys(userId);
+        // Keys of user performing the en-/decryption
+        const userKeys = await this.openpgp.getUserKeys(user.id);
         if (!userKeys.armoredPrivateKey) {
-            console.warn(`WARNING | Cannot encrypt file because user private key missing | User ID: ${userId}`);
-            return;
+            return toError(`Cannot ${op} file because private key for user with email '${user.email}' is missing.`);
+        }
+
+        // Execute crypto operation
+        const payload = {
+            file: file,
+            user: user,
+            password: password,
+            publicKeys: publicKeys,
+            userKeys: userKeys,
+        };
+        switch (op) {
+            case 'encrypt':
+                return await this.encryptFilePrivate(payload);
+            case 'decrypt':
+                return await this.decryptFilePrivate(payload);
+        }
+        return toSuccess({});
+    }
+
+    private async getFileKeys(fileId: string): Promise<KeyPair[]> {
+        const usersIds = this.access.findAllUsersIds(fileId);
+        return await Promise.all(usersIds.map(async (userId) => await this.openpgp.getUserKeys(userId)));
+    }
+
+    private async encryptFilePrivate(input: CryptoOpPrivateInput): Promise<Response<{}>> {
+        const { file, publicKeys, userKeys, password } = input;
+
+        // File info
+        const filename = path.resolve(this.fs.dirs.repo, file.path);
+        if (!fs.existsSync(filename)) {
+            return toError(`Cannot encrypt file with path '${file.path}' because it  doesn't exist.`);
         }
 
         // Encrypt file
         const fileContents = fs.readFileSync(filename).toString();
         const privateKey = await openpgp.decryptKey({
-            privateKey: await openpgp.readPrivateKey({ armoredKey: userKeys.armoredPrivateKey }),
+            privateKey: await openpgp.readPrivateKey({ armoredKey: userKeys.armoredPrivateKey as string }),
             passphrase: password,
         });
         const message = await openpgp.createMessage({ text: fileContents });
@@ -329,33 +366,21 @@ export class GitSecretsManager {
             encryptedContents.toString(),
             'utf-8',
         );
+        return toSuccess({});
     }
 
-    async decryptFile(input: DecryptFileInput) {
-        const { userId, password, fileId } = input;
+    private async decryptFilePrivate(input: CryptoOpPrivateInput): Promise<Response<{}>> {
+        const { file, publicKeys, userKeys, password } = input;
 
-        // File info + check
-        const file = this.files.findOne(fileId);
+        // File check
         const encryptedFilename = path.resolve(this.fs.dirs.repo, `${file.path}${SECRET_EXT}`);
         if (!fs.existsSync(encryptedFilename)) {
-            console.warn(`WARNING | File requested to be decrypted missing | Filename: ${encryptedFilename}`);
-            return;
-        }
-
-        // Public keys of all users with access to the file
-        const keys = await this.getFileKeys(fileId);
-        const publicKeys = keys.map((keys) => keys.publicKey).filter((key) => key !== undefined);
-
-        // Get user keys
-        const { armoredPrivateKey } = await this.openpgp.getUserKeys(userId);
-        if (!armoredPrivateKey) {
-            console.warn(`WARNING | Cannot decrypt file because user private key missing | User ID: ${userId}`);
-            return;
+            return toError(`Cannot decrypt file with path '${file.path}' because it  doesn't exist.`);
         }
 
         // Decrypt file
         const privateKey = await openpgp.decryptKey({
-            privateKey: await openpgp.readPrivateKey({ armoredKey: armoredPrivateKey }),
+            privateKey: await openpgp.readPrivateKey({ armoredKey: userKeys.armoredPrivateKey as string }),
             passphrase: password,
         });
         const encryptedFileContents = fs.readFileSync(encryptedFilename).toString();
@@ -374,11 +399,7 @@ export class GitSecretsManager {
             decryptedContents.toString(),
             'utf-8',
         );
-    }
-
-    async getFileKeys(fileId: string): Promise<KeyPair[]> {
-        const usersIds = this.access.findAllUsersIds(fileId);
-        return await Promise.all(usersIds.map(async (userId) => await this.openpgp.getUserKeys(userId)));
+        return toSuccess({});
     }
 
     async updateUserKeys(input: UserKeyUpdate): Promise<Response<{}>> {

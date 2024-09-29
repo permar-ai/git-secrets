@@ -6,6 +6,11 @@
  *
  */
 
+import { PublicKey } from 'openpgp';
+
+import { User, File } from './db/tables.dto';
+import { KeyPair } from './encryption.dto';
+
 type MaybeArray<T> = T | Array<T>;
 
 export interface UserAdd {
@@ -30,16 +35,18 @@ export interface FileAccessAdd {
     teams: MaybeArray<string> | undefined; // Team names
 }
 
-export interface EncryptFileInput {
-    fileId: string;
-    userId: string;
+export interface CryptoOpInput {
+    path: string;
+    email: string;
     password: string;
 }
 
-export interface DecryptFileInput {
-    fileId: string;
-    userId: string;
+export interface CryptoOpPrivateInput {
+    file: File;
+    user: User;
     password: string;
+    publicKeys: PublicKey[];
+    userKeys: KeyPair;
 }
 
 export interface UserKeyUpdate {
