@@ -12,10 +12,9 @@ import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 import Database from 'better-sqlite3';
-import * as openpgp from 'openpgp';
 import { PublicKey } from 'openpgp';
 
-import { GIT_IGNORE, LOCAL_SETTINGS, SECRET_EXT } from './constants';
+import { GIT_IGNORE, LOCAL_SETTINGS } from './constants';
 import { InternalFileSystem } from './io';
 import { Git } from './git';
 import { Response, toSuccess, toWarning, toError } from './dto';
@@ -35,7 +34,6 @@ import {
     CollectionFileAdd,
     FileAccessAdd,
     CryptoOpInput,
-    CryptoOpPrivateInput,
     UserKeyUpdate,
 } from './managers.dto';
 
@@ -419,17 +417,16 @@ export class GitSecretsManager {
 
         // Execute crypto operation
         const payload = {
-            file: file,
-            user: user,
+            path: file.path,
             password: password,
             publicKeys: publicKeys,
             userKeys: userKeys,
         };
         switch (op) {
             case 'encrypt':
-                return await this.encryptFilePrivate(payload);
+                return await this.openpgp.encryptFile(payload);
             case 'decrypt':
-                return await this.decryptFilePrivate(payload);
+                return await this.openpgp.decryptFile(payload);
         }
         return toSuccess({});
     }
@@ -437,71 +434,6 @@ export class GitSecretsManager {
     private async getFileKeys(path: string): Promise<KeyPair[]> {
         const usersIds = this.access.findAllUsersIds(path);
         return await Promise.all(usersIds.map(async (userId) => await this.openpgp.getUserKeys(userId)));
-    }
-
-    private async encryptFilePrivate(input: CryptoOpPrivateInput): Promise<Response<{}>> {
-        const { file, publicKeys, userKeys, password } = input;
-
-        // File info
-        const filename = path.resolve(this.fs.dirs.repo, file.path);
-        if (!fs.existsSync(filename)) {
-            return toError(`Cannot encrypt file with path '${file.path}' because it  doesn't exist.`);
-        }
-
-        // Encrypt file
-        const fileContents = fs.readFileSync(filename).toString();
-        const privateKey = await openpgp.decryptKey({
-            privateKey: await openpgp.readPrivateKey({ armoredKey: userKeys.armoredPrivateKey as string }),
-            passphrase: password,
-        });
-        const message = await openpgp.createMessage({ text: fileContents });
-        // @ts-ignore
-        const encryptedContents = await openpgp.encrypt({
-            message: message,
-            encryptionKeys: publicKeys,
-            signingKeys: privateKey,
-        });
-
-        // Write file
-        fs.writeFileSync(
-            path.resolve(this.fs.dirs.repo, `${file.path}${SECRET_EXT}`),
-            encryptedContents.toString(),
-            'utf-8',
-        );
-        return toSuccess({});
-    }
-
-    private async decryptFilePrivate(input: CryptoOpPrivateInput): Promise<Response<{}>> {
-        const { file, publicKeys, userKeys, password } = input;
-
-        // File check
-        const encryptedFilename = path.resolve(this.fs.dirs.repo, `${file.path}${SECRET_EXT}`);
-        if (!fs.existsSync(encryptedFilename)) {
-            return toError(`Cannot decrypt file with path '${file.path}' because it  doesn't exist.`);
-        }
-
-        // Decrypt file
-        const privateKey = await openpgp.decryptKey({
-            privateKey: await openpgp.readPrivateKey({ armoredKey: userKeys.armoredPrivateKey as string }),
-            passphrase: password,
-        });
-        const encryptedFileContents = fs.readFileSync(encryptedFilename).toString();
-        const message = await openpgp.readMessage({ armoredMessage: encryptedFileContents });
-        // @ts-ignore
-        const { data: decryptedContents } = await openpgp.decrypt({
-            message: message,
-            decryptionKeys: privateKey,
-            verificationKeys: publicKeys,
-            expectSigned: true,
-        });
-
-        // Write to disk
-        fs.writeFileSync(
-            path.resolve(this.fs.dirs.repo, `${file.path}.decrypted`),
-            decryptedContents.toString(),
-            'utf-8',
-        );
-        return toSuccess({});
     }
 
     async updateUserKeys(input: UserKeyUpdate): Promise<Response<{}>> {
@@ -516,7 +448,7 @@ export class GitSecretsManager {
         return toSuccess({});
     }
 
-    updateFileSignatures(fileId: string) {
+    private updateFileSignatures(fileId: string) {
         const file = this.files.findOne(fileId);
         if (!file) return;
 

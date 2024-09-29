@@ -56,14 +56,6 @@ export interface CryptoOpInput {
     password: string;
 }
 
-export interface CryptoOpPrivateInput {
-    file: File;
-    user: User;
-    password: string;
-    publicKeys: PublicKey[];
-    userKeys: KeyPair;
-}
-
 export interface UserKeyUpdate {
     email: string;
     password: string;

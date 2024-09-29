@@ -7,9 +7,12 @@
  */
 
 import * as fs from 'fs';
+import * as path from 'path';
 import * as openpgp from 'openpgp';
 
-import { KeyPair, KeyPairCreate } from './encryption.dto';
+import { SECRET_EXT } from './constants';
+import { Response, toError, toSuccess } from './dto';
+import { KeyPair, KeyPairCreate, CryptoOperationInput } from './encryption.dto';
 import { InternalFileSystem } from './io';
 
 export class OpenPGP {
@@ -79,5 +82,70 @@ export class OpenPGP {
 
         if (fs.existsSync(publicKeyFile)) await fs.promises.unlink(publicKeyFile);
         if (fs.existsSync(privateKeyFile)) await fs.promises.unlink(privateKeyFile);
+    }
+
+    async encryptFile(input: CryptoOperationInput): Promise<Response<{}>> {
+        const { path: filepath, publicKeys, userKeys, password } = input;
+
+        // File info
+        const filename = path.resolve(this.fs.dirs.repo, filepath);
+        if (!fs.existsSync(filename)) {
+            return toError(`Cannot encrypt file with path '${filepath}' because it  doesn't exist.`);
+        }
+
+        // Encrypt file
+        const fileContents = fs.readFileSync(filename).toString();
+        const privateKey = await openpgp.decryptKey({
+            privateKey: await openpgp.readPrivateKey({ armoredKey: userKeys.armoredPrivateKey as string }),
+            passphrase: password,
+        });
+        const message = await openpgp.createMessage({ text: fileContents });
+        // @ts-ignore
+        const encryptedContents = await openpgp.encrypt({
+            message: message,
+            encryptionKeys: publicKeys,
+            signingKeys: privateKey,
+        });
+
+        // Write file
+        fs.writeFileSync(
+            path.resolve(this.fs.dirs.repo, `${filepath}${SECRET_EXT}`),
+            encryptedContents.toString(),
+            'utf-8',
+        );
+        return toSuccess({});
+    }
+
+    async decryptFile(input: CryptoOperationInput): Promise<Response<{}>> {
+        const { path: filepath, publicKeys, userKeys, password } = input;
+
+        // File check
+        const encryptedFilename = path.resolve(this.fs.dirs.repo, `${filepath}${SECRET_EXT}`);
+        if (!fs.existsSync(encryptedFilename)) {
+            return toError(`Cannot decrypt file with path '${filepath}' because it  doesn't exist.`);
+        }
+
+        // Decrypt file
+        const privateKey = await openpgp.decryptKey({
+            privateKey: await openpgp.readPrivateKey({ armoredKey: userKeys.armoredPrivateKey as string }),
+            passphrase: password,
+        });
+        const encryptedFileContents = fs.readFileSync(encryptedFilename).toString();
+        const message = await openpgp.readMessage({ armoredMessage: encryptedFileContents });
+        // @ts-ignore
+        const { data: decryptedContents } = await openpgp.decrypt({
+            message: message,
+            decryptionKeys: privateKey,
+            verificationKeys: publicKeys,
+            expectSigned: true,
+        });
+
+        // Write to disk
+        fs.writeFileSync(
+            path.resolve(this.fs.dirs.repo, `${filepath}.decrypted`),
+            decryptedContents.toString(),
+            'utf-8',
+        );
+        return toSuccess({});
     }
 }

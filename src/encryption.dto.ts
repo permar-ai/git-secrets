@@ -19,3 +19,10 @@ export interface KeyPair {
     publicKey?: PublicKey;
     armoredPrivateKey?: string;
 }
+
+export interface CryptoOperationInput {
+    path: string;
+    password: string;
+    publicKeys: PublicKey[];
+    userKeys: KeyPair;
+}
