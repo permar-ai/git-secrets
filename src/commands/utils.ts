@@ -6,23 +6,8 @@
  *
  */
 
-import chalk from 'chalk';
-
 import { Response } from '@/dto';
-
-export class Toast {
-    static success(message: string) {
-        console.log(chalk.green(message));
-    }
-
-    static warning(message: string) {
-        console.log(chalk.yellow(message));
-    }
-
-    static error(message: string) {
-        console.log(chalk.red(message));
-    }
-}
+import { Toast } from '@/utils';
 
 function capitalize(text: string) {
     return text.charAt(0).toUpperCase() + text.slice(1);

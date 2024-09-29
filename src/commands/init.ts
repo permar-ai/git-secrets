@@ -8,30 +8,25 @@
 
 import * as yargs from 'yargs';
 
-import { Git } from '@/git';
 import { SetupManager } from '@/managers';
+import { Toast } from '@/utils';
 
-import { Toast } from './utils';
-
-const git = new Git();
+import { CMD } from './constants';
 
 export class InitCommand implements yargs.CommandModule {
     command = 'init';
-    describe = 'Initialize git-secrets.';
+    describe = `Initialize ${CMD}.`;
 
     builder(args: yargs.Argv) {
         return args;
     }
 
     async handler(args: yargs.Arguments) {
-        // Directory
-        const repoDir = git.getRepositoryRootDir();
-
         // Setup
-        const setupManager = new SetupManager({ repoDir: repoDir });
+        const setupManager = new SetupManager();
         setupManager.directories();
         setupManager.files();
         setupManager.database();
-        Toast.success(`Successfully initialized git-secrets.`);
+        Toast.success(`Successfully initialized ${CMD}.`);
     }
 }

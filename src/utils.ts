@@ -10,12 +10,13 @@ import type { PathLike, WriteFileOptions } from 'fs';
 import type { Database as DatabaseType } from 'better-sqlite3';
 
 import * as fs from 'fs';
+import chalk from 'chalk';
 
 export function toArray(value: any) {
     return Array.isArray(value) ? value : value ? [value] : [];
 }
 
-export function mkdirIfNotExists(path: PathLike, options: { recursive: true } = {recursive: true}) {
+export function mkdirIfNotExists(path: PathLike, options: { recursive: true } = { recursive: true }) {
     if (fs.existsSync(path)) return;
     fs.mkdirSync(path, options);
 }
@@ -32,9 +33,7 @@ export function writeFileIfNotExists(file: PathLike, data: string, options?: Wri
 }
 
 export function runSQLSequentially(db: DatabaseType, sql: string, data: Record<string, any> = {}) {
-    const statements = sql
-        .split(';')
-        .slice(0, -1);
+    const statements = sql.split(';').slice(0, -1);
     statements.map((stmt) => db.prepare(stmt + ';').run(data));
 }
 
@@ -45,4 +44,18 @@ export function runSQLAsTransaction(db: DatabaseType, sql: string, data: Record<
         .map((stmt) => db.prepare(stmt + ';'));
     const transaction = db.transaction(() => statements.forEach((stmt) => stmt.run(data)));
     transaction();
+}
+
+export class Toast {
+    static success(message: string) {
+        console.log(chalk.green(message));
+    }
+
+    static warning(message: string) {
+        console.log(chalk.yellow(message));
+    }
+
+    static error(message: string) {
+        console.log(chalk.red(message));
+    }
 }

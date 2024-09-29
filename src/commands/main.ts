@@ -9,7 +9,7 @@
 import * as yargs from 'yargs';
 
 import { getGitSecrets } from '@/index';
-import { Toast } from './utils';
+import { Toast } from '@/utils';
 
 export class HideCommand implements yargs.CommandModule {
     command = 'hide';

@@ -10,8 +10,10 @@ import * as yargs from 'yargs';
 import { prompt } from 'enquirer';
 
 import { getGitSecrets } from '@/index';
+import { Toast } from '@/utils';
+
 import { CMD } from './constants';
-import { Markdown, Toast, printResponse } from './utils';
+import { Markdown, printResponse } from './utils';
 
 class UserListCommand implements yargs.CommandModule {
     command = 'list';

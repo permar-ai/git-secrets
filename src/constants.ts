@@ -14,12 +14,4 @@ export const GIT_IGNORE = `!keys
 local.settings.json
 `;
 export const LOCAL_SETTINGS = {};
-
-// Directory and file names
-export const GIT_SECRETS_DIR = '.gitsecrets';
-export const DATA_DIR = 'data';
-export const KEYS_DIR = 'keys';
-export const DATA_SIGNATURES_FILENAME = 'signatures.json';
-export const LOCAL_SETTINGS_FILENAME = 'local.settings.json';
-export const DB_FILENAME = 'data.db';
 export const SECRET_EXT = '.secret';

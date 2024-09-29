@@ -9,9 +9,59 @@
 import * as yargs from 'yargs';
 
 import { getGitSecrets } from '@/index';
+import { Git } from '@/git';
+import { Toast } from '@/utils';
 
 import { CMD } from './constants';
-import { Toast, printResponse } from './utils';
+import { Markdown, printResponse } from './utils';
+
+const git = new Git();
+
+class AccessListCommand implements yargs.CommandModule {
+    command = 'list';
+    describe = 'List access to file(s).';
+
+    builder(args: yargs.Argv) {
+        return args
+            .option('file', {
+                alias: 'f',
+                describe: 'File path',
+                demandOption: false,
+                type: 'string',
+            })
+            .option('user', {
+                alias: 'u',
+                describe: "User's email address (flag can be used multiple times)",
+                demandOption: false,
+                type: 'string',
+            });
+    }
+
+    async handler(args: yargs.Arguments) {
+        // Init
+        const { file, user } = args as unknown as { file?: string; user?: string };
+        const gitsecrets = getGitSecrets();
+        if (!gitsecrets) return;
+
+        // Retrieve IDs
+        let fileId;
+        let userId;
+        if (file) {
+            const relativePath = git.getRelativePath(file as string);
+            const fileObj = gitsecrets.files.getByPath(relativePath);
+            if (fileObj) fileId = fileObj.id;
+        }
+        if (user) {
+            const userObj = gitsecrets.users.getByEmail(user as string);
+            if (userObj) userId = userObj.id;
+        }
+
+        // List
+        const items = gitsecrets.access.fileAccess.findAll({ fileId, userId });
+        const table = Markdown.table(items, ['access_type', 'path', 'email', 'user_name', 'team', 'collection']);
+        console.log(`***** File Access *****\n\n${table}`);
+    }
+}
 
 class AccessAddCommand implements yargs.CommandModule {
     command = 'add';
@@ -22,7 +72,13 @@ class AccessAddCommand implements yargs.CommandModule {
             .option('file', {
                 alias: 'f',
                 describe: 'File path (flag can be used multiple times)',
-                demandOption: true,
+                demandOption: false,
+                type: 'array',
+            })
+            .option('collection', {
+                alias: 'c',
+                describe: 'Collection name (flag can be used multiple times)',
+                demandOption: false,
                 type: 'array',
             })
             .option('user', {
@@ -41,12 +97,17 @@ class AccessAddCommand implements yargs.CommandModule {
 
     async handler(args: yargs.Arguments) {
         // Init
-        const { file, user, team } = args as unknown as { file: string[]; user?: string[]; team?: string[] };
+        const { file, collection, user, team } = args as unknown as {
+            file?: string[];
+            collection?: string[];
+            user?: string[];
+            team?: string[];
+        };
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
         // Execute
-        const response = await gitsecrets.addFileAccess({ files: file, users: user, teams: team });
+        const response = await gitsecrets.addAccess({ files: file, collections: collection, users: user, teams: team });
         printResponse({
             response: response,
             success: `Successfully added access to files.`,
@@ -94,13 +155,14 @@ class AccessRemoveCommand implements yargs.CommandModule {
 
 export class AccessCommands implements yargs.CommandModule {
     command = 'access <action>';
-    describe = 'Commands to add, update and remove teams.';
+    describe = 'Commands to list, add, and remove access to files.';
 
     builder(args: yargs.Argv) {
         return args
+            .command(new AccessListCommand())
             .command(new AccessAddCommand())
             .command(new AccessRemoveCommand())
-            .demandCommand(1, 'You need to specify an action (add, remove)');
+            .demandCommand(1, 'You need to specify an action (list, add, remove)');
     }
 
     async handler(args: yargs.Arguments) {}

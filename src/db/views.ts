@@ -11,13 +11,13 @@ import Database from 'better-sqlite3';
 import { BaseTableConfigs } from './tables.base.dto';
 import { TeamDto, UserDto, FileAccessDto } from './views.dto';
 
-export class TeamMembersView {
+export class TeamUsersView {
     private readonly db: InstanceType<typeof Database>;
     private readonly view: string;
 
     constructor(configs: BaseTableConfigs) {
         this.db = configs.db;
-        this.view = 'team_members_view';
+        this.view = 'team_users_view';
     }
 
     findAllUsers({ team }: { team: string }): UserDto[] {
@@ -37,31 +37,34 @@ export class TeamMembersView {
     }
 }
 
-export class FileAccess {
+export class FileAccessView {
     private readonly db: InstanceType<typeof Database>;
     private readonly view: string;
 
     constructor(configs: BaseTableConfigs) {
         this.db = configs.db;
-        this.view = 'files_access_view';
+        this.view = 'file_access_view';
+    }
+
+    findAll({ fileId, userId }: { fileId?: string; userId?: string }) {
+        const variables = [fileId, userId];
+        const whereStatements = ['file_id = :fileId', 'user_id = :userId'];
+        const whereStmt = whereStatements.filter((_, idx) => variables[idx]).join(' AND ');
+        const cmd = `SELECT *
+                     from ${this.view}
+                     WHERE ${whereStmt}
+                     ORDER BY file_id, user_id;`;
+        return this.db.prepare(cmd).all({ fileId: fileId, userId: userId }) as FileAccessDto[];
     }
 
     findAllUsersIds({ fileId }: { fileId: string }): string[] {
-        const stmt = this.db.prepare(`SELECT *
-                                      from ${this.view}
-                                      WHERE file_id = :fileId
-                                      ORDER BY file_id, user_id;`);
-        const data = stmt.all({ fileId: fileId }) as FileAccessDto[];
+        const data = this.findAll({ fileId });
         const usersIds = data.map((item) => item.user_id);
         return [...new Set(usersIds)].sort();
     }
 
     findAllFileIds({ userId }: { userId: string }): string[] {
-        const stmt = this.db.prepare(`SELECT *
-                                      from ${this.view}
-                                      WHERE user_id = :userId
-                                      ORDER BY file_id, user_id;`);
-        const data = stmt.all({ userId: userId }) as FileAccessDto[];
+        const data = this.findAll({ userId });
         const fileIds = data.map((item) => item.file_id);
         return [...new Set(fileIds)].sort();
     }

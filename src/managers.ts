@@ -20,15 +20,19 @@ import { InternalFileSystem } from './io';
 import { Git } from './git';
 import { Response, toSuccess, toWarning, toError } from './dto';
 import { BaseTableConfigs } from './db/tables.base.dto';
-import { Users, Teams, TeamMembers, Files, FileUsers, FileTeams } from './db/tables';
-import { TeamMembersView, FileAccess } from './db/views';
+import { Users, Teams, Files, Collections } from './db/tables';
+import { TeamUsers, CollectionFiles, FileUsers, FileTeams, CollectionUsers, CollectionTeams } from './db/relations';
+import { TeamUsersView, FileAccessView } from './db/views';
 import { KeyPair } from './encryption.dto';
 import { OpenPGP } from './encryption';
 import { toArray, mkdirIfNotExists, writeFileIfNotExists, runSQLSequentially } from './utils';
 import {
     UserAdd,
     TeamAdd,
-    TeamMemberAdd,
+    FileAdd,
+    CollectionAdd,
+    TeamUserAdd,
+    CollectionFileAdd,
     FileAccessAdd,
     CryptoOpInput,
     CryptoOpPrivateInput,
@@ -38,14 +42,19 @@ import {
 const git = new Git();
 
 class AccessManager {
-    private readonly fileAccess: FileAccess;
+    readonly fileAccess: FileAccessView;
     private readonly fileUsers: FileUsers;
     private readonly fileTeams: FileTeams;
+    private readonly collectionUsers: CollectionUsers;
+    private readonly collectionTeams: CollectionTeams;
 
     constructor(configs: BaseTableConfigs) {
-        this.fileAccess = new FileAccess({ db: configs.db });
-        this.fileUsers = new FileUsers({ db: configs.db });
-        this.fileTeams = new FileTeams({ db: configs.db });
+        const { db } = configs;
+        this.fileAccess = new FileAccessView({ db });
+        this.fileUsers = new FileUsers({ db });
+        this.fileTeams = new FileTeams({ db });
+        this.collectionUsers = new CollectionUsers({ db });
+        this.collectionTeams = new CollectionTeams({ db });
     }
 
     findAllUsersIds(fileId: string): string[] {
@@ -56,14 +65,38 @@ class AccessManager {
         return this.fileAccess.findAllFileIds({ userId: userId });
     }
 
-    add({ fileId, userId, teamId }: { fileId: string; userId?: string; teamId?: string }) {
-        if (userId) this.fileUsers.add({ fileId: fileId, userId: userId });
-        if (teamId) this.fileTeams.add({ fileId: fileId, teamId: teamId });
+    add({
+        fileId,
+        collectionId,
+        userId,
+        teamId,
+    }: {
+        fileId?: string;
+        collectionId?: string;
+        userId?: string;
+        teamId?: string;
+    }) {
+        if (fileId && userId) this.fileUsers.add({ fileId: fileId, userId: userId });
+        if (fileId && teamId) this.fileTeams.add({ fileId: fileId, teamId: teamId });
+        if (collectionId && userId) this.collectionUsers.add({ collectionId: collectionId, userId: userId });
+        if (collectionId && teamId) this.collectionTeams.add({ collectionId: collectionId, teamId: teamId });
     }
 
-    remove({ fileId, userId, teamId }: { fileId: string; userId?: string; teamId?: string }) {
-        if (userId) this.fileUsers.remove({ fileId: fileId, userId: userId });
-        if (teamId) this.fileTeams.remove({ fileId: fileId, teamId: teamId });
+    remove({
+        fileId,
+        collectionId,
+        userId,
+        teamId,
+    }: {
+        fileId?: string;
+        collectionId?: string;
+        userId?: string;
+        teamId?: string;
+    }) {
+        if (fileId && userId) this.fileUsers.remove({ fileId: fileId, userId: userId });
+        if (fileId && teamId) this.fileTeams.remove({ fileId: fileId, teamId: teamId });
+        if (collectionId && userId) this.collectionUsers.remove({ collectionId: collectionId, userId: userId });
+        if (collectionId && teamId) this.collectionTeams.remove({ collectionId: collectionId, teamId: teamId });
     }
 
     getSignature(fileId: string) {
@@ -76,8 +109,8 @@ class AccessManager {
 export class SetupManager {
     private readonly fs: InternalFileSystem;
 
-    constructor({ repoDir }: { repoDir: string }) {
-        this.fs = new InternalFileSystem({ repoDir });
+    constructor() {
+        this.fs = new InternalFileSystem();
     }
 
     directories() {
@@ -115,8 +148,10 @@ export class GitSecretsManager {
     readonly users: Users;
     readonly teams: Teams;
     readonly files: Files;
-    readonly teamMembers: TeamMembers;
-    readonly teamMembersView: TeamMembersView;
+    readonly collections: Collections;
+    readonly teamUsers: TeamUsers;
+    readonly collectionFiles: CollectionFiles;
+    readonly teamUsersView: TeamUsersView;
 
     // Encryption
     readonly openpgp: OpenPGP;
@@ -124,9 +159,9 @@ export class GitSecretsManager {
     // Managers
     readonly access: AccessManager;
 
-    constructor({ repoDir }: { repoDir: string }) {
+    constructor() {
         // File system
-        this.fs = new InternalFileSystem({ repoDir: repoDir });
+        this.fs = new InternalFileSystem();
 
         // Settings
         this.localSettings = fs.existsSync(this.fs.files.localSettings)
@@ -134,18 +169,21 @@ export class GitSecretsManager {
             : {};
 
         // Database
-        this.db = new Database(this.fs.files.db);
+        const db = new Database(this.fs.files.db);
+        this.db = db;
         this.db.pragma('foreign_keys = ON');
 
         // Tables
-        this.users = new Users({ db: this.db });
-        this.teams = new Teams({ db: this.db });
-        this.files = new Files({ db: this.db });
-        this.teamMembers = new TeamMembers({ db: this.db });
-        this.teamMembersView = new TeamMembersView({ db: this.db });
+        this.users = new Users({ db });
+        this.teams = new Teams({ db });
+        this.files = new Files({ db });
+        this.collections = new Collections({ db });
+        this.teamUsers = new TeamUsers({ db });
+        this.collectionFiles = new CollectionFiles({ db });
+        this.teamUsersView = new TeamUsersView({ db });
 
         // Encryption
-        this.openpgp = new OpenPGP({ repoDir: this.fs.dirs.repo });
+        this.openpgp = new OpenPGP();
 
         // Managers
         this.access = new AccessManager({ db: this.db });
@@ -191,7 +229,7 @@ export class GitSecretsManager {
         return toSuccess({ id: teamId });
     }
 
-    async addTeamMembers(data: TeamMemberAdd): Promise<Response<{}>> {
+    async addTeamUsers(data: TeamUserAdd): Promise<Response<{}>> {
         const { teams, users } = data;
 
         // Retrieve IDs
@@ -218,11 +256,12 @@ export class GitSecretsManager {
 
         // Generate combinations
         const teamUserPairs = teamIds.flatMap((t) => userIds.map((u) => [t, u]));
-        teamUserPairs.map(([teamId, userId]) => this.teamMembers.add({ teamId: teamId, userId: userId }));
+        teamUserPairs.map(([teamId, userId]) => this.teamUsers.add({ teamId: teamId, userId: userId }));
         return toSuccess({});
     }
 
-    async addFile(path: string): Promise<Response<{ id: string; path: string }>> {
+    async addFile(data: FileAdd): Promise<Response<{ id: string; path: string }>> {
+        const { path } = data;
         let fileId = uuidv4();
         const relativePath = git.getRelativePath(path);
         const file = this.files.getByPath(relativePath);
@@ -232,7 +271,7 @@ export class GitSecretsManager {
 
         // New file
         try {
-            this.files.create({ id: fileId, path, contentsSignature: 'SETUP', accessSignature: 'SETUP' });
+            this.files.create({ id: fileId, path: relativePath, contentsSignature: 'SETUP', accessSignature: 'SETUP' });
             this.updateFileSignatures(fileId);
             git.ignore.addEntry(relativePath);
             return toSuccess({ id: fileId, path: relativePath });
@@ -242,9 +281,60 @@ export class GitSecretsManager {
         }
     }
 
-    async addFileAccess(input: FileAccessAdd): Promise<Response<{}>> {
-        const { files, users, teams } = input;
+    async addCollection(data: CollectionAdd): Promise<Response<{ id: string }>> {
+        const { name, description } = data;
+        let collectionId = uuidv4();
+        const collection = this.collections.getByName(name);
+
+        // Existing collection
+        if (collection) return toWarning(`Collection with name '${name}' already exists.`);
+
+        // New collection
+        try {
+            this.collections.create({ id: collectionId, name, description });
+            return toSuccess({ id: collectionId });
+        } catch (err) {
+            console.error(err);
+            return toError(err);
+        }
+    }
+
+    async addCollectionFiles(data: CollectionFileAdd): Promise<Response<{}>> {
+        const { collections, files } = data;
+
+        // Retrieve IDs
+        const collectionIds = toArray(collections).map((name) => {
+            const collection = this.collections.getByName(name);
+            if (!collection) return null;
+            return collection.id;
+        }) as string[];
+        const fileIds = toArray(files).map((path) => {
+            const relativePath = git.getRelativePath(path);
+            const file = this.files.getByPath(relativePath);
+            if (!file) return null;
+            return file.id;
+        }) as string[];
+
+        // Check that all collections and files exist
+        for (let idx = 0; idx < collectionIds.length; idx++) {
+            const collectionId = collectionIds[idx];
+            if (!collectionId) return toError(`Collection with name '${collections[idx]}' does not exist.`);
+        }
+        for (let idx = 0; idx < fileIds.length; idx++) {
+            const fileId = fileIds[idx];
+            if (!fileId) return toError(`File with path '${git.getRelativePath(files[idx])}' does not exist.`);
+        }
+
+        // Generate combinations
+        const collectionFilePairs = collectionIds.flatMap((c) => fileIds.map((f) => [c, f]));
+        collectionFilePairs.map(([cId, fId]) => this.collectionFiles.add({ collectionId: cId, fileId: fId }));
+        return toSuccess({});
+    }
+
+    async addAccess(input: FileAccessAdd): Promise<Response<{}>> {
+        const { files, collections, users, teams } = input;
         const filesList = toArray(files);
+        const collectionsList = toArray(collections);
         const usersList = toArray(users);
         const teamsList = toArray(teams);
 
@@ -252,6 +342,10 @@ export class GitSecretsManager {
         const fileIds = filesList.map((f) => {
             const file = this.files.getByPath(git.getRelativePath(f));
             return file ? file.id : null;
+        }) as string[];
+        const collectionIds = collectionsList.map((c) => {
+            const collection = this.collections.getByName(c);
+            return collection ? collection.id : null;
         }) as string[];
         const userIds = usersList.map((u) => {
             const user = this.users.getByEmail(u);
@@ -262,10 +356,14 @@ export class GitSecretsManager {
             return team ? team.id : null;
         }) as string[];
 
-        // Check that all teams and users exist
+        // Check that all ids exist
         for (let idx = 0; idx < fileIds.length; idx++) {
             const fileId = fileIds[idx];
             if (!fileId) return toError(`File with path '${filesList[idx]}' does not exist.`);
+        }
+        for (let idx = 0; idx < collectionIds.length; idx++) {
+            const collectionId = collectionIds[idx];
+            if (!collectionId) return toError(`Collection with name '${collectionsList[idx]}' does not exist.`);
         }
         for (let idx = 0; idx < teamIds.length; idx++) {
             const teamId = teamIds[idx];
@@ -279,10 +377,14 @@ export class GitSecretsManager {
         // Create all combinations
         const filesUsers = fileIds.flatMap((f) => userIds.map((u) => [f, u]));
         const filesTeams = fileIds.flatMap((f) => teamIds.map((t) => [f, t]));
+        const collectionUsers = collectionIds.flatMap((c) => userIds.map((u) => [c, u]));
+        const collectionTeams = collectionIds.flatMap((c) => teamIds.map((t) => [c, t]));
 
         // Add access
-        filesUsers.map(([fileId, userId]) => this.access.add({ fileId: fileId, userId: userId }));
-        filesTeams.map(([fileId, teamId]) => this.access.add({ fileId: fileId, teamId: teamId }));
+        filesUsers.map(([fid, uid]) => this.access.add({ fileId: fid, userId: uid }));
+        filesTeams.map(([fid, tid]) => this.access.add({ fileId: fid, teamId: tid }));
+        collectionUsers.map(([cid, uid]) => this.access.add({ collectionId: cid, userId: uid }));
+        collectionTeams.map(([cid, tid]) => this.access.add({ collectionId: cid, teamId: tid }));
         return toSuccess({});
     }
 

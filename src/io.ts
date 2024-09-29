@@ -9,17 +9,21 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import {
-    DATA_DIR,
-    DATA_SIGNATURES_FILENAME,
-    DB_FILENAME,
-    GIT_SECRETS_DIR,
-    KEYS_DIR,
-    LOCAL_SETTINGS_FILENAME,
-} from '@/constants';
 import crypto from 'crypto';
 
+import { Git } from './git';
+
+// Directory and file names
+const GIT_SECRETS_DIR = '.gitsecrets';
+const DATA_DIR = 'data';
+const KEYS_DIR = 'keys';
+const DATA_SIGNATURES_FILENAME = 'signatures.json';
+const LOCAL_SETTINGS_FILENAME = 'local.settings.json';
+const DB_FILENAME = 'data.db';
+
 type KeyPathFunction = (userId: string) => string;
+
+const git = new Git();
 
 export class InternalFileSystem {
     readonly dirs: { repo: string; gitsecrets: string; keys: string; data: string };
@@ -32,7 +36,9 @@ export class InternalFileSystem {
         privateKey: KeyPathFunction;
     };
 
-    constructor({ repoDir }: { repoDir: string }) {
+    constructor() {
+        // Repository directory is by default the root of the git repository
+        const repoDir = git.getRepositoryRootDir();
         this.dirs = {
             repo: repoDir,
             gitsecrets: path.resolve(repoDir, GIT_SECRETS_DIR),

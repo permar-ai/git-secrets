@@ -16,8 +16,8 @@ export class OpenPGP {
     private readonly fs: InternalFileSystem;
     private readonly keysCache: Record<string, KeyPair>;
 
-    constructor({ repoDir }: { repoDir: string }) {
-        this.fs = new InternalFileSystem({ repoDir: repoDir });
+    constructor() {
+        this.fs = new InternalFileSystem();
         this.keysCache = {};
     }
 

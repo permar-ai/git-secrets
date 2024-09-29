@@ -18,9 +18,10 @@ export interface UserDto {
 export interface FileAccessDto {
     file_id: string;
     user_id: string;
+    access_type: 'user' | 'team' | 'collection' | 'collection-team';
     path: string;
     email: string;
-    name?: string;
-    access_type: 'user' | 'team';
+    user_name?: string;
     team?: string;
+    collection?: string;
 }

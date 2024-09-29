@@ -8,25 +8,20 @@
 
 import chalk from 'chalk';
 
-import { Git } from './git';
 import { InternalFileSystem } from './io';
 import { GitSecretsManager as GitSecrets } from './managers';
-
-const git = new Git();
+import { CMD } from './commands/constants';
 
 export function getGitSecrets() {
-    // Directory
-    const repoDir = git.getRepositoryRootDir();
-
     // Initialization check
-    const fs = new InternalFileSystem({ repoDir: repoDir });
+    const fs = new InternalFileSystem();
     if (!fs.isInitialized()) {
-        console.log(chalk.yellow("Please run 'git-secrets init' to get started."));
+        console.log(chalk.yellow(`Please run '${CMD} init' to get started.`));
         return;
     }
 
     // Manager instantiation
-    return new GitSecrets({ repoDir: repoDir });
+    return new GitSecrets();
 }
 
 export { GitSecrets };

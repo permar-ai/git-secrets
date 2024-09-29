@@ -9,9 +9,10 @@
 import * as yargs from 'yargs';
 
 import { getGitSecrets } from '@/index';
+import { Toast } from '@/utils';
 
 import { CMD } from './constants';
-import { Toast, Markdown, printResponse } from './utils';
+import { Markdown, printResponse } from './utils';
 
 class TeamMemberListCommand implements yargs.CommandModule {
     command = 'list';
@@ -41,7 +42,7 @@ class TeamMemberListCommand implements yargs.CommandModule {
         if (!gitsecrets) return;
 
         // List teams
-        let users = gitsecrets.teamMembersView.findAllUsers({ team: team });
+        let users = gitsecrets.teamUsersView.findAllUsers({ team: team });
         if (search) {
             const searchStr = search.toLowerCase();
             users = users.filter(
@@ -87,7 +88,7 @@ class TeamMemberAddCommand implements yargs.CommandModule {
         if (!gitsecrets) return;
 
         // Exec
-        const response = await gitsecrets.addTeamMembers({ teams: team, users: user });
+        const response = await gitsecrets.addTeamUsers({ teams: team, users: user });
         printResponse({
             response: response,
             success:

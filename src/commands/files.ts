@@ -10,9 +10,10 @@ import * as yargs from 'yargs';
 
 import { getGitSecrets } from '@/index';
 import { Git } from '@/git';
+import { Toast } from '@/utils';
 
 import { CMD } from './constants';
-import { Markdown, Toast, printResponse } from './utils';
+import { Markdown, printResponse } from './utils';
 
 const git = new Git();
 
@@ -30,9 +31,8 @@ class FileListCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
+        // Init
         const { search } = args as unknown as { search?: string };
-
-        // Client
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
@@ -67,15 +67,14 @@ class FileAddCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
+        // Init
         const { path } = args as unknown as { path: string };
-
-        // Client
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
         // Add file
         const relativePath = git.getRelativePath(path);
-        const response = await gitsecrets.addFile(relativePath);
+        const response = await gitsecrets.addFile({ path: relativePath });
         printResponse({
             response: response,
             success: `Successfully registered file with path '${relativePath}'.`,
@@ -105,9 +104,8 @@ class FileUpdateCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
+        // Init
         const { path, updatedPath } = args as unknown as { path: string; updatedPath: string };
-
-        // Client
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
@@ -143,13 +141,12 @@ class FileRemoveCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
+        // Init
         const { path } = args as unknown as { path: string };
-
-        // Client
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
-        // Remove path
+        // Remove file
         const relativePath = git.getRelativePath(path);
         const file = gitsecrets.files.getByPath(relativePath);
         if (!file) {
@@ -163,7 +160,7 @@ class FileRemoveCommand implements yargs.CommandModule {
 
 export class FileCommands implements yargs.CommandModule {
     command = 'file <action>';
-    describe = 'Commands to add, update and remove files.';
+    describe = 'Commands to list, add, update and remove files.';
 
     builder(args: yargs.Argv) {
         return args
@@ -171,7 +168,7 @@ export class FileCommands implements yargs.CommandModule {
             .command(new FileAddCommand())
             .command(new FileUpdateCommand())
             .command(new FileRemoveCommand())
-            .demandCommand(1, 'You need to specify an action (add, update, remove)');
+            .demandCommand(1, 'You need to specify an action (list, add, update, remove)');
     }
 
     async handler(args: yargs.Arguments) {}

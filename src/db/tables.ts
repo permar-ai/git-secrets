@@ -12,9 +12,19 @@ import type { MaybeNull } from '@/dto';
 import { v4 as uuidv4 } from 'uuid';
 
 import { BaseTableConfigs } from './tables.base.dto';
-import { User, Team, File } from './tables.dto';
-import { KeyValue, UserCreate, UserUpdate, TeamCreate, TeamUpdate, FileCreate, FileUpdate } from './tables.dto';
-import { BaseUUIDTable, BaseRelationshipTable } from './tables.base';
+import { User, Team, File, Collection } from './tables.dto';
+import {
+    KeyValue,
+    UserCreate,
+    UserUpdate,
+    TeamCreate,
+    TeamUpdate,
+    FileCreate,
+    FileUpdate,
+    CollectionCreate,
+    CollectionUpdate,
+} from './tables.dto';
+import { BaseUUIDTable } from './tables.base';
 
 export class Metadata {
     private readonly db: InstanceType<typeof Database>;
@@ -136,20 +146,6 @@ export class Teams extends BaseUUIDTable {
     }
 }
 
-export class TeamMembers extends BaseRelationshipTable {
-    constructor(configs: BaseTableConfigs) {
-        super({ db: configs.db, table: 'team_members', key1: 'team_id', key2: 'user_id' });
-    }
-
-    add({ teamId, userId }: { teamId: string; userId: string }) {
-        this.addRelationship({ key1: teamId, key2: userId });
-    }
-
-    remove({ teamId, userId }: { teamId: string; userId: string }) {
-        this.removeRelationship({ key1: teamId, key2: userId });
-    }
-}
-
 export class Files extends BaseUUIDTable {
     constructor(configs: BaseTableConfigs) {
         super({ db: configs.db, table: 'files', sortBy: 'path' });
@@ -197,30 +193,43 @@ export class Files extends BaseUUIDTable {
     }
 }
 
-export class FileUsers extends BaseRelationshipTable {
+export class Collections extends BaseUUIDTable {
     constructor(configs: BaseTableConfigs) {
-        super({ db: configs.db, table: 'file_users', key1: 'file_id', key2: 'user_id' });
+        super({ db: configs.db, table: 'collections', sortBy: 'name' });
     }
 
-    add({ fileId, userId }: { fileId: string; userId: string }) {
-        this.addRelationship({ key1: fileId, key2: userId });
+    getByName(name: string): MaybeNull<Collection> {
+        const cmd = `SELECT *
+                     FROM ${this.table}
+                     WHERE name = :name
+                     LIMIT 1;`;
+        const data = this.db.prepare(cmd).get({ name }) ?? null;
+        return data as MaybeNull<Collection>;
     }
 
-    remove({ fileId, userId }: { fileId: string; userId: string }) {
-        this.removeRelationship({ key1: fileId, key2: userId });
-    }
-}
-
-export class FileTeams extends BaseRelationshipTable {
-    constructor(configs: BaseTableConfigs) {
-        super({ db: configs.db, table: 'file_teams', key1: 'file_id', key2: 'team_id' });
+    create(data: CollectionCreate): string {
+        const { id = uuidv4(), name, description } = data;
+        const cmd = `INSERT INTO ${this.table} (id, name, description)
+                     VALUES (:id, :name, :description);`;
+        this.db.prepare(cmd).run({ id, name, description });
+        return id;
     }
 
-    add({ fileId, teamId }: { fileId: string; teamId: string }) {
-        this.addRelationship({ key1: fileId, key2: teamId });
+    update(id: string, data: CollectionUpdate) {
+        const { name, description } = data;
+        const variables = [name, description];
+        const updateStatements = ['name = :name', 'description = :description'];
+        const updateStmt = updateStatements.filter((_, idx) => variables[idx]).join(', ');
+
+        const cmd = `UPDATE ${this.table}
+                     SET ${updateStmt}
+                     WHERE id = :id`;
+        this.db.prepare(cmd).run({ id: id, name: name, description: description });
     }
 
-    remove({ fileId, teamId }: { fileId: string; teamId: string }) {
-        this.removeRelationship({ key1: fileId, key2: teamId });
+    removeByName(name: string) {
+        const collection = this.getByName(name);
+        if (!collection?.id) return;
+        this.remove(collection.id);
     }
 }

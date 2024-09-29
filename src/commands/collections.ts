@@ -9,15 +9,17 @@
 import * as yargs from 'yargs';
 
 import { getGitSecrets } from '@/index';
+import { Git } from '@/git';
 import { Toast } from '@/utils';
 
 import { CMD } from './constants';
-import { TeamMemberCommands } from './teamUsers';
 import { Markdown, printResponse } from './utils';
 
-class TeamListCommand implements yargs.CommandModule {
+const git = new Git();
+
+class CollectionListCommand implements yargs.CommandModule {
     command = 'list';
-    describe = 'List teams.';
+    describe = 'List collections.';
 
     builder(args: yargs.Argv) {
         return args.option('search', {
@@ -35,40 +37,39 @@ class TeamListCommand implements yargs.CommandModule {
         if (!gitsecrets) return;
 
         // List teams
-        let teams = gitsecrets.teams.findAll();
+        let collections = gitsecrets.collections.findAll();
         if (search) {
             const searchStr = search.toLowerCase();
-            teams = teams.filter(
-                (team) =>
-                    team.name.toLowerCase().includes(searchStr) || team.description?.toLowerCase().includes(searchStr),
+            collections = collections.filter(
+                (c) => c.name.toLowerCase().includes(searchStr) || c.description?.toLowerCase().includes(searchStr),
             );
         }
 
-        // Check any teams have been found
-        if (teams.length === 0) {
-            Toast.warning('No teams found' + (search ? ` with search query '${search}'.` : '.'));
+        // Check any collections have been found
+        if (collections.length === 0) {
+            Toast.warning('No collections found' + (search ? ` with search query '${search}'.` : '.'));
             return;
         }
-        const table = Markdown.table(teams, ['name', 'description']);
-        console.log(`***** Teams *****\n\n${table}`);
+        const table = Markdown.table(collections, ['name', 'description']);
+        console.log(`***** Collections *****\n\n${table}`);
     }
 }
 
-class TeamAddCommand implements yargs.CommandModule {
+class CollectionAddCommand implements yargs.CommandModule {
     command = 'add';
-    describe = 'Add a new team.';
+    describe = 'Add a new collection.';
 
     builder(args: yargs.Argv) {
         return args
             .option('name', {
                 alias: 'n',
-                describe: 'Team name',
+                describe: 'Collection name',
                 demandOption: true,
                 type: 'string',
             })
             .option('description', {
                 alias: 'd',
-                describe: 'Team description',
+                describe: 'Collection description',
                 demandOption: false,
                 type: 'string',
             });
@@ -80,39 +81,37 @@ class TeamAddCommand implements yargs.CommandModule {
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
-        // Add user
-        const response = await gitsecrets.addTeam({ name: name, description: description });
+        // Add collection
+        const response = await gitsecrets.addCollection({ name: name, description: description });
         printResponse({
             response: response,
-            success:
-                `Successfully added team with name: '${name}'` +
-                (description ? ` and description: '${description}'.` : '.'),
-            cmd: `Try using '${CMD} team list' to list teams.`,
+            success: `Successfully registered collection with name '${name}'.`,
+            cmd: `Try using '${CMD} collection list' to list collections.`,
         });
     }
 }
 
-class TeamUpdateCommand implements yargs.CommandModule {
+class CollectionUpdateCommand implements yargs.CommandModule {
     command = 'update';
-    describe = 'Update team information.';
+    describe = 'Update collection information.';
 
     builder(args: yargs.Argv) {
         return args
             .option('name', {
                 alias: 'n',
-                describe: 'Team name',
+                describe: 'Current collection name',
                 demandOption: true,
                 type: 'string',
             })
             .option('updated-name', {
                 alias: 'u',
-                describe: 'Updated team name',
+                describe: 'Updated collection name',
                 demandOption: false,
                 type: 'string',
             })
             .option('description', {
                 alias: 'd',
-                describe: 'Updated team description',
+                describe: 'Updated description',
                 demandOption: false,
                 type: 'string',
             });
@@ -128,25 +127,29 @@ class TeamUpdateCommand implements yargs.CommandModule {
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
-        // Update team
-        const team = gitsecrets.teams.getByName(name);
-        if (!team) {
-            Toast.warning(`No team with name '${name}' found.\nTry '${CMD} team list' to list teams.`);
+        // Update collection
+        const collection = gitsecrets.collections.getByName(name);
+        if (!collection) {
+            Toast.warning(
+                `No collection with name '${name}' found.\nTry 'git-secrets collection list' to list collections.`,
+            );
             return;
         }
-        gitsecrets.teams.update(team.id, { name: updatedName, description: description });
-        Toast.success(`Successfully updated team.`);
+
+        // Update collection
+        gitsecrets.collections.update(collection.id, { name: updatedName, description: description });
+        Toast.success('Successfully update collection.');
     }
 }
 
-class TeamRemoveCommand implements yargs.CommandModule {
+class CollectionRemoveCommand implements yargs.CommandModule {
     command = 'remove';
-    describe = 'Remove team.';
+    describe = 'Remove collection.';
 
     builder(args: yargs.Argv) {
         return args.option('name', {
             alias: 'n',
-            describe: 'Team name',
+            describe: 'Collection name',
             demandOption: true,
             type: 'string',
         });
@@ -158,28 +161,30 @@ class TeamRemoveCommand implements yargs.CommandModule {
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
-        const team = gitsecrets.teams.getByName(name);
-        if (!team) {
-            Toast.warning(`No team with name '${name}' found.\nTry '${CMD} team list' to list teams.`);
+        // Remove collection
+        const collection = gitsecrets.collections.getByName(name);
+        if (!collection) {
+            Toast.warning(
+                `No collection with name '${name}' found.\nTry 'git-secrets collection list' to list collections.`,
+            );
             return;
         }
-        gitsecrets.teams.remove(team.id);
-        Toast.success(`Successfully removed team '${team.name}'.`);
+        gitsecrets.collections.remove(collection.id);
+        Toast.success('Successfully removed collection.');
     }
 }
 
-export class TeamCommands implements yargs.CommandModule {
-    command = 'team <action>';
-    describe = 'Commands to add, update and remove teams.';
+export class CollectionCommands implements yargs.CommandModule {
+    command = 'collection <action>';
+    describe = 'Commands to list, add, update and remove collections.';
 
     builder(args: yargs.Argv) {
         return args
-            .command(new TeamListCommand())
-            .command(new TeamAddCommand())
-            .command(new TeamUpdateCommand())
-            .command(new TeamRemoveCommand())
-            .command(new TeamMemberCommands())
-            .demandCommand(1, 'You need to specify an action (add, update, remove)');
+            .command(new CollectionListCommand())
+            .command(new CollectionAddCommand())
+            .command(new CollectionUpdateCommand())
+            .command(new CollectionRemoveCommand())
+            .demandCommand(1, 'You need to specify an action (list, add, update, remove)');
     }
 
     async handler(args: yargs.Arguments) {}

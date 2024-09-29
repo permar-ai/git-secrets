@@ -24,15 +24,30 @@ export interface TeamAdd {
     description?: string;
 }
 
-export interface TeamMemberAdd {
+export interface TeamUserAdd {
     teams: MaybeArray<string>; // Team names
     users: MaybeArray<string>; // Users email
 }
 
+export interface FileAdd {
+    path: string;
+}
+
+export interface CollectionAdd {
+    name: string;
+    description?: string;
+}
+
+export interface CollectionFileAdd {
+    collections: MaybeArray<string>; // Collection names
+    files: MaybeArray<string>; // File path
+}
+
 export interface FileAccessAdd {
-    files: MaybeArray<string>; // File paths
-    users: MaybeArray<string> | undefined; // Users email
-    teams: MaybeArray<string> | undefined; // Team names
+    files?: MaybeArray<string>; // File paths
+    collections?: MaybeArray<string>; // Collection names
+    users?: MaybeArray<string> | undefined; // Users email
+    teams?: MaybeArray<string> | undefined; // Team names
 }
 
 export interface CryptoOpInput {

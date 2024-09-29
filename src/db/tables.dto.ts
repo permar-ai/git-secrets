@@ -47,11 +47,6 @@ export interface TeamUpdate {
     description?: string;
 }
 
-export interface TeamMember {
-    team_id: string;
-    user_id: string;
-}
-
 export interface File extends BaseUUID {
     path: string;
     contents_signature: string;
@@ -69,4 +64,20 @@ export interface FileUpdate {
     path?: string;
     contentsSignature?: string;
     accessSignature?: string;
+}
+
+export interface Collection extends BaseUUID {
+    name: string;
+    description?: string;
+}
+
+export interface CollectionCreate {
+    id?: string;
+    name: string;
+    description?: string;
+}
+
+export interface CollectionUpdate {
+    name?: string;
+    description?: string;
 }
