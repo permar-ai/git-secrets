@@ -20,14 +20,14 @@ export interface TeamAdd {
 }
 
 export interface TeamMemberAdd {
-    teamIds: MaybeArray<string>;
-    userIds: MaybeArray<string>;
+    teams: MaybeArray<string>; // Team names
+    users: MaybeArray<string>; // Users email
 }
 
 export interface FileAccessAdd {
-    fileIds: MaybeArray<string>;
-    userIds: MaybeArray<string>;
-    teamIds: MaybeArray<string>;
+    files: MaybeArray<string>; // File paths
+    users: MaybeArray<string> | undefined; // Users email
+    teams: MaybeArray<string> | undefined; // Team names
 }
 
 export interface EncryptFileInput {
@@ -43,6 +43,6 @@ export interface DecryptFileInput {
 }
 
 export interface UserKeyUpdate {
-    userId: string;
+    email: string;
     password: string;
 }

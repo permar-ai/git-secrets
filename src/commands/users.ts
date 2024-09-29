@@ -10,7 +10,8 @@ import * as yargs from 'yargs';
 import { prompt } from 'enquirer';
 
 import { getGitSecrets } from '@/index';
-import { Markdown, Toast } from './utils';
+import { CMD } from './constants';
+import { Markdown, Toast, printResponse } from './utils';
 
 class UserListCommand implements yargs.CommandModule {
     command = 'list';
@@ -26,7 +27,7 @@ class UserListCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
-        let { search } = args;
+        const { search } = args as unknown as { search?: string };
 
         // Client
         const gitsecrets = getGitSecrets();
@@ -34,7 +35,7 @@ class UserListCommand implements yargs.CommandModule {
 
         // List teams
         let users = gitsecrets.users.findAll();
-        if (typeof search === 'string') {
+        if (search) {
             const searchStr = search.toLowerCase();
             users = users.filter(
                 (team) => team.email.toLowerCase().includes(searchStr) || team.name?.toLowerCase().includes(searchStr),
@@ -51,7 +52,7 @@ class UserListCommand implements yargs.CommandModule {
     }
 }
 
-export class UserAddCommand implements yargs.CommandModule {
+class UserAddCommand implements yargs.CommandModule {
     command = 'add';
     describe = 'Add new user.';
 
@@ -72,18 +73,16 @@ export class UserAddCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
-        const { email, name } = args;
+        const { email, name } = args as unknown as { email: string; name?: string };
 
         // Client
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
         // Check if user exists
-        const user = await gitsecrets.users.getByEmail(email as string);
+        const user = await gitsecrets.users.getByEmail(email);
         if (user) {
-            Toast.warning(
-                `User with email '${email}' already exist.\nTry using the 'git-secrets user update' command.`,
-            );
+            Toast.warning(`User with email '${email}' already exist.\nTry using the '${CMD} user update' command.`);
             return;
         }
 
@@ -100,16 +99,20 @@ export class UserAddCommand implements yargs.CommandModule {
         ]);
 
         // Create user
-        await gitsecrets.addUser({
-            email: email as string,
-            name: name as string,
+        const response = await gitsecrets.addUser({
+            email: email,
+            name: name,
             password: answers.password,
         });
-        Toast.success(`Successfully added user with email: '${email}'` + (name ? ` and name: '${name}'.` : '.'));
+        printResponse({
+            response: response,
+            success: `Successfully added user with email: '${email}'` + (name ? ` and name: '${name}'.` : '.'),
+            cmd: `Try using '${CMD} user list' to list users.`,
+        });
     }
 }
 
-export class UserUpdateCommand implements yargs.CommandModule {
+class UserUpdateCommand implements yargs.CommandModule {
     command = 'update';
     describe = 'Update user information.';
 
@@ -136,16 +139,28 @@ export class UserUpdateCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
+        const { email, updatedEmail, name } = args as unknown as {
+            email: string;
+            updatedEmail?: string;
+            name?: string;
+        };
+
         // Client
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
-        // TODO: Implement method
-        Toast.error('Method not yet implemented');
+        // Update team
+        const user = gitsecrets.users.getByEmail(email);
+        if (!user) {
+            Toast.warning(`No user with email '${email}' found.\nTry '${CMD} user list' to list users.`);
+            return;
+        }
+        gitsecrets.users.update(user.id, { email: updatedEmail, name: name });
+        Toast.success(`Successfully updated user.`);
     }
 }
 
-export class UserRemoveCommand implements yargs.CommandModule {
+class UserRemoveCommand implements yargs.CommandModule {
     command = 'remove';
     describe = 'Remove user.';
 
@@ -159,12 +174,21 @@ export class UserRemoveCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
+        const { email } = args as unknown as { email: string };
+
         // Client
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
-        // TODO: Implement method
-        Toast.error('Method not yet implemented');
+        // Remove user + keys
+        const user = gitsecrets.users.getByEmail(email);
+        if (!user) {
+            Toast.warning(`No user with email '${email}' found.\nTry '${CMD} user list' to list users.`);
+            return;
+        }
+        gitsecrets.users.remove(user.id);
+        await gitsecrets.openpgp.removeUserKeys(user.id);
+        Toast.success(`Successfully removed user '${user.email}'.`);
     }
 }
 

@@ -7,10 +7,11 @@
  */
 
 import * as yargs from 'yargs';
-import chalk from 'chalk';
 
 import { Git } from '@/git';
 import { SetupManager } from '@/managers';
+
+import { Toast } from './utils';
 
 const git = new Git();
 
@@ -31,6 +32,6 @@ export class InitCommand implements yargs.CommandModule {
         setupManager.directories();
         setupManager.files();
         setupManager.database();
-        console.log(chalk.green(`Successfully initialized git-secrets.`));
+        Toast.success(`Successfully initialized git-secrets.`);
     }
 }

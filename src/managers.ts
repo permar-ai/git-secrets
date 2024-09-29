@@ -14,23 +14,16 @@ import * as crypto from 'crypto';
 import Database from 'better-sqlite3';
 import * as openpgp from 'openpgp';
 
-import {
-    GIT_IGNORE,
-    LOCAL_SETTINGS,
-    GIT_SECRETS_DIR,
-    DATA_DIR,
-    KEYS_DIR,
-    DATA_SIGNATURES_FILENAME,
-    LOCAL_SETTINGS_FILENAME,
-    DB_FILENAME,
-    SECRET_EXT,
-} from './constants';
-import {BaseTableConfigs} from './db/tables.base.dto';
-import {Users, Teams, TeamMembers, Files, FileUsers, FileTeams} from './db/tables';
-import {FileAccess} from './db/views';
-import {KeyPair} from './encryption.dto';
-import {OpenPGP} from './encryption';
-import {toArray, mkdirIfNotExists, writeFileIfNotExists, runSQLSequentially } from './utils';
+import { GIT_IGNORE, LOCAL_SETTINGS, SECRET_EXT } from './constants';
+import { InternalFileSystem } from './io';
+import { Git } from './git';
+import { Response, toSuccess, toWarning, toError } from './dto';
+import { BaseTableConfigs } from './db/tables.base.dto';
+import { Users, Teams, TeamMembers, Files, FileUsers, FileTeams } from './db/tables';
+import { TeamMembersView, FileAccess } from './db/views';
+import { KeyPair } from './encryption.dto';
+import { OpenPGP } from './encryption';
+import { toArray, mkdirIfNotExists, writeFileIfNotExists, runSQLSequentially } from './utils';
 import {
     UserAdd,
     TeamAdd,
@@ -41,61 +34,41 @@ import {
     UserKeyUpdate,
 } from './managers.dto';
 
+const git = new Git();
+
 class AccessManager {
     private readonly fileAccess: FileAccess;
     private readonly fileUsers: FileUsers;
     private readonly fileTeams: FileTeams;
 
     constructor(configs: BaseTableConfigs) {
-        this.fileAccess = new FileAccess({db: configs.db});
-        this.fileUsers = new FileUsers({db: configs.db});
-        this.fileTeams = new FileTeams({db: configs.db});
+        this.fileAccess = new FileAccess({ db: configs.db });
+        this.fileUsers = new FileUsers({ db: configs.db });
+        this.fileTeams = new FileTeams({ db: configs.db });
     }
 
     findAllUsersIds(fileId: string): string[] {
-        return this.fileAccess.findAllUsersIds({fileId: fileId});
+        return this.fileAccess.findAllUsersIds({ fileId: fileId });
     }
 
     findAllFilesIds(userId: string): string[] {
-        return this.fileAccess.findAllFileIds({userId: userId});
+        return this.fileAccess.findAllFileIds({ userId: userId });
     }
 
-    add({fileId, userId, teamId}: { fileId: string; userId?: string; teamId?: string }) {
-        if (userId) this.fileUsers.add({fileId: fileId, userId: userId});
-        if (teamId) this.fileTeams.add({fileId: fileId, teamId: teamId});
+    add({ fileId, userId, teamId }: { fileId: string; userId?: string; teamId?: string }) {
+        if (userId) this.fileUsers.add({ fileId: fileId, userId: userId });
+        if (teamId) this.fileTeams.add({ fileId: fileId, teamId: teamId });
     }
 
-    remove({fileId, userId, teamId}: { fileId: string; userId?: string; teamId?: string }) {
-        if (userId) this.fileUsers.remove({fileId: fileId, userId: userId});
-        if (teamId) this.fileTeams.remove({fileId: fileId, teamId: teamId});
-    }
-}
-
-export class InternalFileSystem {
-    readonly dirs: { repo: string, gitsecrets: string, keys: string, data: string };
-    readonly files: { settings?: string; localSettings: string; db: string; dataSignatures: string; };
-
-    constructor({ repoDir }: { repoDir: string }) {
-        this.dirs = {
-            repo: repoDir,
-            gitsecrets: path.resolve(repoDir, GIT_SECRETS_DIR),
-            keys: path.resolve(repoDir, GIT_SECRETS_DIR, KEYS_DIR),
-            data: path.resolve(repoDir, GIT_SECRETS_DIR, DATA_DIR),
-        }
-        this.files = {
-            localSettings: path.resolve(this.dirs.gitsecrets, LOCAL_SETTINGS_FILENAME),
-            db: path.resolve(this.dirs.gitsecrets, DB_FILENAME),
-            dataSignatures: path.resolve(this.dirs.data, DATA_SIGNATURES_FILENAME)
-        }
+    remove({ fileId, userId, teamId }: { fileId: string; userId?: string; teamId?: string }) {
+        if (userId) this.fileUsers.remove({ fileId: fileId, userId: userId });
+        if (teamId) this.fileTeams.remove({ fileId: fileId, teamId: teamId });
     }
 
-    isInitialized(): boolean {
-        const initialized = false;
-        if (!fs.existsSync(this.dirs.gitsecrets)) return initialized;
-        if (!fs.existsSync(this.dirs.keys)) return false;
-        if (!fs.existsSync(this.files.localSettings)) return false;
-        if (!fs.existsSync(this.files.db)) return false;
-        return true;
+    getSignature(fileId: string) {
+        const usersIds = this.findAllUsersIds(fileId);
+        const usersIdsText = usersIds.join(',') || '';
+        return crypto.createHash('sha256').update(usersIdsText).digest('hex');
     }
 }
 
@@ -142,9 +115,10 @@ export class GitSecretsManager {
     readonly teams: Teams;
     readonly files: Files;
     readonly teamMembers: TeamMembers;
+    readonly teamMembersView: TeamMembersView;
 
     // Encryption
-    private readonly openpgp: OpenPGP;
+    readonly openpgp: OpenPGP;
 
     // Managers
     readonly access: AccessManager;
@@ -163,102 +137,154 @@ export class GitSecretsManager {
         this.db.pragma('foreign_keys = ON');
 
         // Tables
-        this.users = new Users({db: this.db});
-        this.teams = new Teams({db: this.db});
-        this.files = new Files({db: this.db});
-        this.teamMembers = new TeamMembers({db: this.db});
+        this.users = new Users({ db: this.db });
+        this.teams = new Teams({ db: this.db });
+        this.files = new Files({ db: this.db });
+        this.teamMembers = new TeamMembers({ db: this.db });
+        this.teamMembersView = new TeamMembersView({ db: this.db });
 
         // Encryption
-        this.openpgp = new OpenPGP({ keysDir: this.fs.dirs.keys });
+        this.openpgp = new OpenPGP({ repoDir: this.fs.dirs.repo });
 
         // Managers
-        this.access = new AccessManager({db: this.db});
+        this.access = new AccessManager({ db: this.db });
     }
 
     async updateLocalSettings(email: string) {
         const user = this.users.getByEmail(email);
-        this.localSettings = {...this.localSettings, user: user};
+        this.localSettings = { ...this.localSettings, user: user };
         fs.writeFileSync(this.fs.files.localSettings, JSON.stringify(this.localSettings, null, 4), 'utf-8');
     }
 
-    async addUser(input: UserAdd): Promise<string | null> {
-        const {email, name, password} = input;
+    async addUser(data: UserAdd): Promise<Response<{ id: string }>> {
+        const { email, name, password } = data;
         const userId = uuidv4();
         const user = this.users.getByEmail(email);
 
         // Existing user
-        if (user) return user.id;
+        if (user) return toWarning(`User with email '${email}' already exists.`);
 
         // New user
         try {
-            await this.openpgp.createKeyPair({userId, email, name, password});
-            this.users.create({id: userId, email, name});
-            return userId;
+            await this.openpgp.createKeyPair({ userId, email, name, password });
+            this.users.create({ id: userId, email, name });
+            return toSuccess({ id: userId });
         } catch (err) {
             console.error(err);
             // Delete keys files if already created
             // TODO: Try to delete keys
+            return toError(err);
         }
-        return null;
     }
 
-    async addTeam(input: TeamAdd): Promise<string> {
-        const {name, description} = input;
+    async addTeam(data: TeamAdd): Promise<Response<{ id: string }>> {
+        const { name, description } = data;
         const teamId = uuidv4();
         const team = this.teams.getByName(name);
 
         // Existing team
-        if (team) return team.id;
+        if (team) return toWarning(`Team with name '${name}' already exists.`);
 
         // New team
-        this.teams.create({id: teamId, name: name, description: description});
-        return teamId;
+        this.teams.create({ id: teamId, name: name, description: description });
+        return toSuccess({ id: teamId });
     }
 
-    async addTeamMembers(input: TeamMemberAdd) {
-        const {teamIds, userIds} = input;
-        const teamIdsList = toArray(teamIds);
-        const userIdsList = toArray(userIds);
+    async addTeamMembers(data: TeamMemberAdd): Promise<Response<{}>> {
+        const { teams, users } = data;
+
+        // Retrieve IDs
+        const teamIds = toArray(teams).map((name) => {
+            const team = this.teams.getByName(name);
+            if (!team) return null;
+            return team.id;
+        }) as string[];
+        const userIds = toArray(users).map((email) => {
+            const user = this.users.getByEmail(email);
+            if (!user) return null;
+            return user.id;
+        }) as string[];
+
+        // Check that all teams and users exist
+        for (let idx = 0; idx < teamIds.length; idx++) {
+            const teamId = teamIds[idx];
+            if (!teamId) return toError(`Team with name '${teams[idx]}' does not exist.`);
+        }
+        for (let idx = 0; idx < userIds.length; idx++) {
+            const userId = userIds[idx];
+            if (!userId) return toError(`User with email '${users[idx]}' does not exist.`);
+        }
 
         // Generate combinations
-        const teamUserPairs = teamIdsList.flatMap((l1) => userIdsList.map((l2) => [l1, l2]));
-        teamUserPairs.map(([teamId, userId]) => this.teamMembers.add({teamId: teamId, userId: userId}));
+        const teamUserPairs = teamIds.flatMap((t) => userIds.map((u) => [t, u]));
+        teamUserPairs.map(([teamId, userId]) => this.teamMembers.add({ teamId: teamId, userId: userId }));
+        return toSuccess({});
     }
 
-    async addFile(path: string): Promise<string | null> {
+    async addFile(path: string): Promise<Response<{ id: string }>> {
         let fileId = uuidv4();
         const file = this.files.getByPath(path);
 
         // Existing file
-        if (file) {
-            this.updateFileSignatures(file.id);
-            return file.id;
-        }
+        if (file) return toWarning(`File with path '${path}' already exists.`);
 
         // New file
         try {
-            this.files.create({id: fileId, path, contents_signature: 'SETUP', access_signature: 'SETUP'});
+            this.files.create({ id: fileId, path, contentsSignature: 'SETUP', accessSignature: 'SETUP' });
             this.updateFileSignatures(fileId);
-            return fileId;
+            git.addToGitIgnore(path);
+            return toSuccess({ id: fileId });
         } catch (err) {
             console.error(err);
+            return toError(err);
         }
-        return null;
     }
 
-    async addFileAccess(input: FileAccessAdd) {
-        const {fileIds, userIds, teamIds} = input;
-        const fileIdsList = toArray(fileIds);
-        const userIdsList = toArray(userIds);
-        const teamIdsList = toArray(teamIds);
+    async addFileAccess(input: FileAccessAdd): Promise<Response<{}>> {
+        const { files, users, teams } = input;
+        const filesList = toArray(files);
+        const usersList = toArray(users);
+        const teamsList = toArray(teams);
+
+        // Retrieve ids
+        const fileIds = filesList.map((f) => {
+            const file = this.files.getByPath(git.getRelativePath(f));
+            return file ? file.id : null;
+        }) as string[];
+        const userIds = usersList.map((u) => {
+            const user = this.users.getByEmail(u);
+            return user ? user.id : null;
+        }) as string[];
+        const teamIds = teamsList.map((t) => {
+            const team = this.teams.getByName(t);
+            return team ? team.id : null;
+        }) as string[];
+
+        // Check that all teams and users exist
+        for (let idx = 0; idx < fileIds.length; idx++) {
+            const fileId = fileIds[idx];
+            if (!fileId) return toError(`File with path '${filesList[idx]}' does not exist.`);
+        }
+        for (let idx = 0; idx < teamIds.length; idx++) {
+            const teamId = teamIds[idx];
+            if (!teamId) return toError(`Team with name '${teamsList[idx]}' does not exist.`);
+        }
+        for (let idx = 0; idx < userIds.length; idx++) {
+            const userId = userIds[idx];
+            if (!userId) return toError(`User with email '${usersList[idx]}' does not exist.`);
+        }
 
         // Create all combinations
-        const filesUsers = fileIdsList.flatMap((l1) => userIdsList.map((l2) => [l1, l2]));
-        const filesTeams = fileIdsList.flatMap((l1) => teamIdsList.map((l2) => [l1, l2]));
+        const filesUsers = fileIds.flatMap((f) => userIds.map((u) => [f, u]));
+        const filesTeams = fileIds.flatMap((f) => teamIds.map((t) => [f, t]));
+
+        console.log(filesUsers);
+        console.log(filesTeams);
 
         // Add access
-        filesUsers.map(([fileId, userId]) => this.access.add({fileId: fileId, userId: userId}));
-        filesTeams.map(([fileId, teamId]) => this.access.add({fileId: fileId, teamId: teamId}));
+        filesUsers.map(([fileId, userId]) => this.access.add({ fileId: fileId, userId: userId }));
+        filesTeams.map(([fileId, teamId]) => this.access.add({ fileId: fileId, teamId: teamId }));
+        return toSuccess({});
     }
 
     async encryptFile(input: EncryptFileInput) {
@@ -289,7 +315,7 @@ export class GitSecretsManager {
             privateKey: await openpgp.readPrivateKey({ armoredKey: userKeys.armoredPrivateKey }),
             passphrase: password,
         });
-        const message = await openpgp.createMessage({text: fileContents});
+        const message = await openpgp.createMessage({ text: fileContents });
         // @ts-ignore
         const encryptedContents = await openpgp.encrypt({
             message: message,
@@ -298,11 +324,15 @@ export class GitSecretsManager {
         });
 
         // Write file
-        fs.writeFileSync(path.resolve(this.fs.dirs.repo, `${file.path}${SECRET_EXT}`), encryptedContents.toString(), 'utf-8');
+        fs.writeFileSync(
+            path.resolve(this.fs.dirs.repo, `${file.path}${SECRET_EXT}`),
+            encryptedContents.toString(),
+            'utf-8',
+        );
     }
 
     async decryptFile(input: DecryptFileInput) {
-        const {userId, password, fileId} = input;
+        const { userId, password, fileId } = input;
 
         // File info + check
         const file = this.files.findOne(fileId);
@@ -317,7 +347,7 @@ export class GitSecretsManager {
         const publicKeys = keys.map((keys) => keys.publicKey).filter((key) => key !== undefined);
 
         // Get user keys
-        const {armoredPrivateKey} = await this.openpgp.getUserKeys(userId);
+        const { armoredPrivateKey } = await this.openpgp.getUserKeys(userId);
         if (!armoredPrivateKey) {
             console.warn(`WARNING | Cannot decrypt file because user private key missing | User ID: ${userId}`);
             return;
@@ -325,13 +355,13 @@ export class GitSecretsManager {
 
         // Decrypt file
         const privateKey = await openpgp.decryptKey({
-            privateKey: await openpgp.readPrivateKey({armoredKey: armoredPrivateKey}),
+            privateKey: await openpgp.readPrivateKey({ armoredKey: armoredPrivateKey }),
             passphrase: password,
         });
         const encryptedFileContents = fs.readFileSync(encryptedFilename).toString();
-        const message = await openpgp.readMessage({armoredMessage: encryptedFileContents});
+        const message = await openpgp.readMessage({ armoredMessage: encryptedFileContents });
         // @ts-ignore
-        const {data: decryptedContents} = await openpgp.decrypt({
+        const { data: decryptedContents } = await openpgp.decrypt({
             message: message,
             decryptionKeys: privateKey,
             verificationKeys: publicKeys,
@@ -339,7 +369,11 @@ export class GitSecretsManager {
         });
 
         // Write to disk
-        fs.writeFileSync(path.resolve(this.fs.dirs.repo, `${file.path}.decrypted`), decryptedContents.toString(), 'utf-8');
+        fs.writeFileSync(
+            path.resolve(this.fs.dirs.repo, `${file.path}.decrypted`),
+            decryptedContents.toString(),
+            'utf-8',
+        );
     }
 
     async getFileKeys(fileId: string): Promise<KeyPair[]> {
@@ -347,30 +381,28 @@ export class GitSecretsManager {
         return await Promise.all(usersIds.map(async (userId) => await this.openpgp.getUserKeys(userId)));
     }
 
-    async updateUserKeys(input: UserKeyUpdate) {
-        const {userId, password} = input;
-        const user = this.users.findOne(userId);
+    async updateUserKeys(input: UserKeyUpdate): Promise<Response<{}>> {
+        const { email, password } = input;
+        const user = this.users.getByEmail(email);
+        if (!user) return toError(`User with email '${email}' does not exist.`);
         // TODO:
         //  1. Decrypt all files that user has access to
         //  2. Update keys
         //  3. Encrypt all files that user has access to
-        await this.openpgp.createKeyPair({userId, email: user.email, name: user.name, password});
+        await this.openpgp.createKeyPair({ userId: user.id, email: user.email, name: user.name, password });
+        return toSuccess({});
     }
 
     updateFileSignatures(fileId: string) {
         const file = this.files.findOne(fileId);
+        if (!file) return;
 
-        // Contents signature
-        const fileContents = fs.readFileSync(path.resolve(this.fs.dirs.repo, file.path), 'utf-8');
-        const contents_signature = crypto.createHash('sha256').update(fileContents).digest('hex');
-
-        // Access signature
-        const usersIds = this.access.findAllUsersIds(fileId);
-        const usersIdsText = usersIds.join(',') || '';
-        const access_signature = crypto.createHash('sha256').update(usersIdsText).digest('hex');
+        // Signatures
+        const contentsSignature = this.fs.getSignature(file.path);
+        const accessSignature = this.access.getSignature(file.id);
 
         // DB update
-        this.files.update({id: fileId, contents_signature: contents_signature, access_signature: access_signature});
+        this.files.update(fileId, { contentsSignature, accessSignature });
     }
 
     async cleanup() {

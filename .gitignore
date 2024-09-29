@@ -15,3 +15,7 @@ build
 
 # Tmp
 tmp
+
+# git-secrets
+examples/example.js
+examples/example.txt

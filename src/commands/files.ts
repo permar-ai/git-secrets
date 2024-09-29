@@ -10,7 +10,11 @@ import * as yargs from 'yargs';
 
 import { getGitSecrets } from '@/index';
 import { Git } from '@/git';
-import { Markdown, Toast } from './utils';
+
+import { CMD } from './constants';
+import { Markdown, Toast, printResponse } from './utils';
+
+const git = new Git();
 
 class FileListCommand implements yargs.CommandModule {
     command = 'list';
@@ -26,7 +30,7 @@ class FileListCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
-        let { search } = args;
+        const { search } = args as unknown as { search?: string };
 
         // Client
         const gitsecrets = getGitSecrets();
@@ -34,7 +38,7 @@ class FileListCommand implements yargs.CommandModule {
 
         // List teams
         let files = gitsecrets.files.findAll();
-        if (typeof search === 'string') {
+        if (search) {
             const searchStr = search.toLowerCase();
             files = files.filter((file) => file.path.toLowerCase().includes(searchStr));
         }
@@ -63,17 +67,20 @@ class FileAddCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
+        const { path } = args as unknown as { path: string };
+
         // Client
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
-        // Compute file path relative to git directory
-        const git = new Git();
-        const relativePath = git.getRelativePath(args.path as string);
-
         // Add file
-        await gitsecrets.addFile(relativePath);
-        Toast.success(`Successfully registered file with path '${relativePath}'.`);
+        const relativePath = git.getRelativePath(path);
+        const response = await gitsecrets.addFile(relativePath);
+        printResponse({
+            response: response,
+            success: `Successfully registered file with path '${relativePath}'.`,
+            cmd: `Try using '${CMD} file list' to list files.`,
+        });
     }
 }
 
@@ -98,12 +105,27 @@ class FileUpdateCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
+        const { path, updatedPath } = args as unknown as { path: string; updatedPath: string };
+
         // Client
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
-        // TODO: Implement method
-        Toast.error('Method not yet implemented');
+        const relativePath = git.getRelativePath(path);
+        const relativeUpdatedPath = git.getRelativePath(updatedPath);
+
+        // Update file
+        const file = gitsecrets.files.getByPath(relativePath);
+        if (!file) {
+            Toast.warning(`No file with path '${relativePath}' found.\nTry 'git-secrets file list' to list files.`);
+            return;
+        }
+
+        // Get new signatures
+        const contentsSignature = gitsecrets.fs.getSignature(relativeUpdatedPath);
+        const accessSignature = gitsecrets.access.getSignature(file.id);
+        gitsecrets.files.update(file.id, { path: relativeUpdatedPath, contentsSignature, accessSignature });
+        Toast.success('Successfully update file.');
     }
 }
 
@@ -121,12 +143,21 @@ class FileRemoveCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
+        const { path } = args as unknown as { path: string };
+
         // Client
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
-        // TODO: Implement method
-        Toast.error('Method not yet implemented');
+        // Remove path
+        const relativePath = git.getRelativePath(path);
+        const file = gitsecrets.files.getByPath(relativePath);
+        if (!file) {
+            Toast.warning(`No file with path '${relativePath}' found.\nTry 'git-secrets file list' to list files.`);
+            return;
+        }
+        gitsecrets.files.remove(file.id);
+        Toast.success('Successfully removed file.');
     }
 }
 

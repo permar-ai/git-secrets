@@ -9,7 +9,10 @@
 import * as yargs from 'yargs';
 
 import { getGitSecrets } from '@/index';
-import { Toast, Markdown } from './utils';
+
+import { CMD } from './constants';
+import { TeamMemberCommands } from './teamMembers';
+import { Toast, Markdown, printResponse } from './utils';
 
 class TeamListCommand implements yargs.CommandModule {
     command = 'list';
@@ -25,15 +28,14 @@ class TeamListCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
-        let { search } = args;
-
-        // Client
+        // Init
+        const { search } = args as unknown as { search?: string };
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
         // List teams
         let teams = gitsecrets.teams.findAll();
-        if (typeof search === 'string') {
+        if (search) {
             const searchStr = search.toLowerCase();
             teams = teams.filter(
                 (team) =>
@@ -72,20 +74,20 @@ class TeamAddCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
-        // Client
+        // Init
+        const { name, description } = args as unknown as { name: string; description?: string };
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
         // Add user
-        const { name, description } = args;
-        await gitsecrets.addTeam({
-            name: name as string,
-            description: description as string,
-        });
-        Toast.success(
-            `Successfully added team with name: '${name}'` +
+        const response = await gitsecrets.addTeam({ name: name, description: description });
+        printResponse({
+            response: response,
+            success:
+                `Successfully added team with name: '${name}'` +
                 (description ? ` and description: '${description}'.` : '.'),
-        );
+            cmd: `Try using '${CMD} team list' to list teams.`,
+        });
     }
 }
 
@@ -116,12 +118,23 @@ class TeamUpdateCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
-        // Client
+        // Init
+        const { name, updatedName, description } = args as unknown as {
+            name: string;
+            updatedName?: string;
+            description?: string;
+        };
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
-        // TODO: Implement method
-        Toast.error('Method not yet implemented');
+        // Update team
+        const team = gitsecrets.teams.getByName(name);
+        if (!team) {
+            Toast.warning(`No team with name '${name}' found.\nTry '${CMD} team list' to list teams.`);
+            return;
+        }
+        gitsecrets.teams.update(team.id, { name: updatedName, description: description });
+        Toast.success(`Successfully updated team.`);
     }
 }
 
@@ -139,12 +152,18 @@ class TeamRemoveCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
-        // Client
+        // Init
+        const { name } = args as unknown as { name: string };
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
-        // TODO: Implement method
-        Toast.error('Method not yet implemented');
+        const team = gitsecrets.teams.getByName(name);
+        if (!team) {
+            Toast.warning(`No team with name '${name}' found.\nTry '${CMD} team list' to list teams.`);
+            return;
+        }
+        gitsecrets.teams.remove(team.id);
+        Toast.success(`Successfully removed team '${team.name}'.`);
     }
 }
 
@@ -158,6 +177,7 @@ export class TeamCommands implements yargs.CommandModule {
             .command(new TeamAddCommand())
             .command(new TeamUpdateCommand())
             .command(new TeamRemoveCommand())
+            .command(new TeamMemberCommands())
             .demandCommand(1, 'You need to specify an action (add, update, remove)');
     }
 

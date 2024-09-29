@@ -9,7 +9,9 @@
 import * as yargs from 'yargs';
 
 import { getGitSecrets } from '@/index';
-import { Toast } from './utils';
+
+import { CMD } from './constants';
+import { Toast, printResponse } from './utils';
 
 class AccessAddCommand implements yargs.CommandModule {
     command = 'add';
@@ -38,12 +40,18 @@ class AccessAddCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
-        // Client
+        // Init
+        const { file, user, team } = args as unknown as { file: string[]; user?: string[]; team?: string[] };
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
-        // TODO: Implement method
-        Toast.error('Method not yet implemented');
+        // Execute
+        const response = await gitsecrets.addFileAccess({ files: file, users: user, teams: team });
+        printResponse({
+            response: response,
+            success: `Successfully added access to files.`,
+            cmd: `Try using '${CMD} file list' to list files, '${CMD} user list' to list users or '${CMD} team list to list teams.`,
+        });
     }
 }
 
@@ -75,6 +83,7 @@ class AccessRemoveCommand implements yargs.CommandModule {
 
     async handler(args: yargs.Arguments) {
         // Client
+        const { file, user, team } = args as unknown as { file: string[]; user?: string[]; team?: string[] };
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 

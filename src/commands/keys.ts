@@ -11,7 +11,7 @@ import * as yargs from 'yargs';
 import { getGitSecrets } from '@/index';
 import { Toast } from './utils';
 
-export class UserKeysUpdateCommand implements yargs.CommandModule {
+class UserKeysUpdateCommand implements yargs.CommandModule {
     command = 'keys';
     describe = 'Update the user public and private keys.';
 

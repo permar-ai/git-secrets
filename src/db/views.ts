@@ -9,7 +9,33 @@
 import Database from 'better-sqlite3';
 
 import { BaseTableConfigs } from './tables.base.dto';
-import { FileAccessDto } from './views.dto';
+import { TeamDto, UserDto, FileAccessDto } from './views.dto';
+
+export class TeamMembersView {
+    private readonly db: InstanceType<typeof Database>;
+    private readonly view: string;
+
+    constructor(configs: BaseTableConfigs) {
+        this.db = configs.db;
+        this.view = 'team_members_view';
+    }
+
+    findAllUsers({ team }: { team: string }): UserDto[] {
+        const cmd = `SELECT *
+                     from ${this.view}
+                     WHERE team = :team
+                     ORDER BY team, email;`;
+        return this.db.prepare(cmd).all({ team: team }) as UserDto[];
+    }
+
+    findAllTeams({ user }: { user: string }): TeamDto[] {
+        const cmd = `SELECT *
+                     from ${this.view}
+                     WHERE email = :email
+                     ORDER BY team, email;`;
+        return this.db.prepare(cmd).all({ email: user }) as TeamDto[];
+    }
+}
 
 export class FileAccess {
     private readonly db: InstanceType<typeof Database>;

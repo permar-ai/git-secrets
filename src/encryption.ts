@@ -7,17 +7,17 @@
  */
 
 import * as fs from 'fs';
-import * as path from 'path';
 import * as openpgp from 'openpgp';
 
 import { KeyPair, KeyPairCreate } from './encryption.dto';
+import { InternalFileSystem } from './io';
 
 export class OpenPGP {
-    private readonly keysDir: string;
+    private readonly fs: InternalFileSystem;
     private readonly keysCache: Record<string, KeyPair>;
 
-    constructor({ keysDir }: { keysDir: string }) {
-        this.keysDir = keysDir;
+    constructor({ repoDir }: { repoDir: string }) {
+        this.fs = new InternalFileSystem({ repoDir: repoDir });
         this.keysCache = {};
     }
 
@@ -34,8 +34,8 @@ export class OpenPGP {
         });
 
         // Write keys to disk
-        fs.writeFileSync(path.resolve(this.keysDir, `${userId}.public`), armoredPublicKey, 'utf-8');
-        fs.writeFileSync(path.resolve(this.keysDir, `${userId}.private`), armoredPrivateKey, 'utf-8');
+        fs.writeFileSync(this.fs.files.publicKey(userId), armoredPublicKey, 'utf-8');
+        fs.writeFileSync(this.fs.files.privateKey(userId), armoredPrivateKey, 'utf-8');
 
         // Un-armor public key & update cache
         const publicKey = await openpgp.readKey({ armoredKey: armoredPublicKey });
@@ -47,8 +47,8 @@ export class OpenPGP {
         if (userId in this.keysCache) return this.keysCache[userId];
 
         // Read keys
-        const publicKeyFilename = path.resolve(this.keysDir, `${userId}.public`);
-        const privateKeyFilename = path.resolve(this.keysDir, `${userId}.private`);
+        const publicKeyFilename = this.fs.files.publicKey(userId);
+        const privateKeyFilename = this.fs.files.privateKey(userId);
         let publicKey;
         if (fs.existsSync(publicKeyFilename)) {
             const armoredPublicKey = fs.readFileSync(publicKeyFilename, 'utf-8');
@@ -71,5 +71,13 @@ export class OpenPGP {
         this.keysCache[userId] = keys;
 
         return keys;
+    }
+
+    async removeUserKeys(userId: string) {
+        const publicKeyFile = this.fs.files.publicKey(userId);
+        const privateKeyFile = this.fs.files.privateKey(userId);
+
+        if (fs.existsSync(publicKeyFile)) await fs.promises.unlink(publicKeyFile);
+        if (fs.existsSync(privateKeyFile)) await fs.promises.unlink(privateKeyFile);
     }
 }

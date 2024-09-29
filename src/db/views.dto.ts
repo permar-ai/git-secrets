@@ -6,6 +6,15 @@
  *
  */
 
+export interface TeamDto {
+    team: string;
+}
+
+export interface UserDto {
+    email: string;
+    name?: string;
+}
+
 export interface FileAccessDto {
     file_id: string;
     user_id: string;

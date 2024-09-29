@@ -6,10 +6,11 @@
  *
  */
 
-import chalk from "chalk";
+import chalk from 'chalk';
 
 import { Git } from './git';
-import { InternalFileSystem, GitSecretsManager as GitSecrets } from './managers';
+import { InternalFileSystem } from './io';
+import { GitSecretsManager as GitSecrets } from './managers';
 
 const git = new Git();
 

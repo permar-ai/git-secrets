@@ -26,6 +26,11 @@ export interface UserCreate {
     name?: string;
 }
 
+export interface UserUpdate {
+    email?: string;
+    name?: string;
+}
+
 export interface Team extends BaseUUID {
     name: string;
     description: string;
@@ -34,6 +39,11 @@ export interface Team extends BaseUUID {
 export interface TeamCreate {
     id?: string;
     name: string;
+    description?: string;
+}
+
+export interface TeamUpdate {
+    name?: string;
     description?: string;
 }
 
@@ -51,13 +61,12 @@ export interface File extends BaseUUID {
 export interface FileCreate {
     id?: string;
     path: string;
-    contents_signature: string;
-    access_signature: string;
+    contentsSignature: string;
+    accessSignature: string;
 }
 
 export interface FileUpdate {
-    id: string;
     path?: string;
-    contents_signature?: string;
-    access_signature?: string;
+    contentsSignature?: string;
+    accessSignature?: string;
 }

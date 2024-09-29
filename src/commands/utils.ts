@@ -8,6 +8,8 @@
 
 import chalk from 'chalk';
 
+import { Response } from '@/dto';
+
 export class Toast {
     static success(message: string) {
         console.log(chalk.green(message));
@@ -40,5 +42,19 @@ export class Markdown {
             txt += '| ' + columns.map((c, idx) => item[c].padEnd(widths[idx], ' ')).join(' | ') + ' |\n';
         });
         return txt;
+    }
+}
+
+export function printResponse({ response, success, cmd }: { response: Response<any>; success: string; cmd?: string }) {
+    switch (response.type) {
+        case 'success':
+            Toast.success(success);
+            return;
+        case 'warning':
+            Toast.warning(response.warning + (cmd ? `\n${cmd}` : ''));
+            return;
+        case 'error':
+            Toast.error(response.error + (cmd ? `\n${cmd}` : ''));
+            return;
     }
 }

@@ -13,7 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { BaseTableConfigs } from './tables.base.dto';
 import { User, Team, File } from './tables.dto';
-import { KeyValue, UserCreate, TeamCreate, FileCreate, FileUpdate } from './tables.dto';
+import { KeyValue, UserCreate, UserUpdate, TeamCreate, TeamUpdate, FileCreate, FileUpdate } from './tables.dto';
 import { BaseUUIDTable, BaseRelationshipTable } from './tables.base';
 
 export class Metadata {
@@ -64,12 +64,26 @@ export class Users extends BaseUUIDTable {
         return data as MaybeNull<User>;
     }
 
-    create(input: UserCreate): string {
-        const { id = uuidv4(), email, name } = input;
+    create(data: UserCreate): string {
+        const { id = uuidv4(), email, name } = data;
         const cmd = `INSERT INTO ${this.table} (id, email, name)
                      VALUES (:id, :email, :name);`;
         this.db.prepare(cmd).run({ id, email, name });
         return id;
+    }
+
+    update(id: string, data: UserUpdate) {
+        const { email, name } = data;
+        const variables = [email, name];
+        const updateStatements = ['email = :email', 'name = :name'];
+        const updateStmt = updateStatements.filter((_, idx) => variables[idx]).join(', ');
+        if (updateStmt === '') return;
+
+        // Update
+        const cmd = `UPDATE ${this.table}
+                     SET ${updateStmt}
+                     WHERE id = :id`;
+        this.db.prepare(cmd).run({ id: id, email: email, name: name });
     }
 
     removeByEmail(email: string) {
@@ -93,12 +107,26 @@ export class Teams extends BaseUUIDTable {
         return data as MaybeNull<Team>;
     }
 
-    create(input: TeamCreate) {
-        const { id = uuidv4(), name, description } = input;
+    create(data: TeamCreate) {
+        const { id = uuidv4(), name, description } = data;
         const cmd = `INSERT INTO ${this.table} (id, name, description)
                      VALUES (:id, :name, :description);`;
         this.db.prepare(cmd).run({ id: id, name: name, description: description });
         return id;
+    }
+
+    update(id: string, data: TeamUpdate) {
+        const { name, description } = data;
+        const variables = [name, description];
+        const updateStatements = ['name = :name', 'description = :description'];
+        const updateStmt = updateStatements.filter((_, idx) => variables[idx]).join(', ');
+        if (updateStmt === '') return;
+
+        // Update
+        const cmd = `UPDATE ${this.table}
+                     SET ${updateStmt}
+                     WHERE id = :id`;
+        this.db.prepare(cmd).run({ id: id, name: name, description: description });
     }
 
     removeByName(name: string) {
@@ -136,17 +164,19 @@ export class Files extends BaseUUIDTable {
         return data as MaybeNull<File>;
     }
 
-    create(input: FileCreate): string {
-        const { id = uuidv4(), path, contents_signature, access_signature } = input;
+    create(data: FileCreate): string {
+        const { id = uuidv4(), path, contentsSignature, accessSignature } = data;
         const cmd = `INSERT INTO ${this.table} (id, path, contents_signature, access_signature)
                      VALUES (:id, :path, :contents_signature, :access_signature);`;
-        this.db.prepare(cmd).run({ id, path, contents_signature, access_signature });
+        this.db
+            .prepare(cmd)
+            .run({ id, path, contents_signature: contentsSignature, access_signature: accessSignature });
         return id;
     }
 
-    update(input: FileUpdate) {
-        const { id, path, contents_signature, access_signature } = input;
-        const variables = [path, contents_signature, access_signature];
+    update(id: string, data: FileUpdate) {
+        const { path, contentsSignature, accessSignature } = data;
+        const variables = [path, contentsSignature, accessSignature];
         const updateStatements = [
             'path = :path',
             'contents_signature = :contents_signature',
@@ -157,7 +187,7 @@ export class Files extends BaseUUIDTable {
         const cmd = `UPDATE ${this.table}
                      SET ${updateStmt}
                      WHERE id = :id`;
-        this.db.prepare(cmd).run({ id, contents_signature, access_signature });
+        this.db.prepare(cmd).run({ id: id, contents_signature: contentsSignature, access_signature: accessSignature });
     }
 
     removeByPath(path: string) {

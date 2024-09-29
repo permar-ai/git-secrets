@@ -8,7 +8,7 @@
 
 import Database from 'better-sqlite3';
 
-import { MaybeEmpty } from '@/dto';
+import { MaybeEmpty, MaybeNull } from '@/dto';
 import { BaseUUIDTableConfigs, BaseRelationshipTableConfigs } from './tables.base.dto';
 
 export class BaseUUIDTable {
@@ -30,14 +30,14 @@ export class BaseUUIDTable {
         return stmt.all();
     }
 
-    findOne(id: string): MaybeEmpty<any> {
+    findOne(id: string): MaybeNull<any> {
         const cmd = `SELECT *
                      FROM ${this.table}
                      WHERE id = :id
                      LIMIT 1;`;
         const stmt = this.db.prepare(cmd);
-        const data = stmt.get({ id }) ?? {};
-        return data as MaybeEmpty<any>;
+        const data = stmt.get({ id }) ?? null;
+        return data as MaybeNull<any>;
     }
 
     remove(id: string) {
