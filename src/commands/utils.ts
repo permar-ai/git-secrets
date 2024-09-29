@@ -16,7 +16,7 @@ function capitalize(text: string) {
 export class Markdown {
     static table(data: any[], columns: string[]) {
         // Calculate widths
-        const widths = columns.map((c, idx) => Math.max(1, c[idx].length, ...data.map((item) => item[c]?.length || 0)));
+        const widths = columns.map((c) => Math.max(1, c.length, ...data.map((item) => item[c]?.length || 0)));
 
         // Headers
         let txt = '| ' + columns.map((c, idx) => capitalize(c).padEnd(widths[idx])).join(' | ') + ' |\n';
@@ -24,7 +24,8 @@ export class Markdown {
 
         // Data
         data.map((item) => {
-            txt += '| ' + columns.map((c, idx) => item[c].padEnd(widths[idx], ' ')).join(' | ') + ' |\n';
+            txt +=
+                '| ' + columns.map((c, idx) => (item[c] ? item[c] : '').padEnd(widths[idx], ' ')).join(' | ') + ' |\n';
         });
         return txt;
     }

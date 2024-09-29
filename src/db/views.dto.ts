@@ -6,13 +6,14 @@
  *
  */
 
-export interface TeamDto {
+export interface TeamUserDto {
     team: string;
+    email: string;
 }
 
-export interface UserDto {
-    email: string;
-    name?: string;
+export interface CollectionFileDto {
+    collection: string;
+    file: string;
 }
 
 export interface FileAccessDto {
@@ -21,7 +22,6 @@ export interface FileAccessDto {
     access_type: 'user' | 'team' | 'collection' | 'collection-team';
     path: string;
     email: string;
-    user_name?: string;
     team?: string;
     collection?: string;
 }

@@ -57,12 +57,12 @@ class AccessManager {
         this.collectionTeams = new CollectionTeams({ db });
     }
 
-    findAllUsersIds(fileId: string): string[] {
-        return this.fileAccess.findAllUsersIds({ fileId: fileId });
+    findAllUsersIds(path: string): string[] {
+        return this.fileAccess.findAllUsersIds({ path: path });
     }
 
-    findAllFilesIds(userId: string): string[] {
-        return this.fileAccess.findAllFileIds({ userId: userId });
+    findAllFilesIds(email: string): string[] {
+        return this.fileAccess.findAllFileIds({ email: email });
     }
 
     add({
@@ -99,8 +99,8 @@ class AccessManager {
         if (collectionId && teamId) this.collectionTeams.remove({ collectionId: collectionId, teamId: teamId });
     }
 
-    getSignature(fileId: string) {
-        const usersIds = this.findAllUsersIds(fileId);
+    getSignature({ path }: { path: string }) {
+        const usersIds = this.findAllUsersIds(path);
         const usersIdsText = usersIds.join(',') || '';
         return crypto.createHash('sha256').update(usersIdsText).digest('hex');
     }
@@ -408,7 +408,7 @@ export class GitSecretsManager {
         if (!user) return toError(`User with email '${email}' does not exist.`);
 
         // Public keys of all users with access to the file
-        const keys = await this.getFileKeys(file.id);
+        const keys = await this.getFileKeys(relativePath);
         const publicKeys = keys.map((keys) => keys.publicKey).filter((key) => key !== undefined) as PublicKey[];
 
         // Keys of user performing the en-/decryption
@@ -434,8 +434,8 @@ export class GitSecretsManager {
         return toSuccess({});
     }
 
-    private async getFileKeys(fileId: string): Promise<KeyPair[]> {
-        const usersIds = this.access.findAllUsersIds(fileId);
+    private async getFileKeys(path: string): Promise<KeyPair[]> {
+        const usersIds = this.access.findAllUsersIds(path);
         return await Promise.all(usersIds.map(async (userId) => await this.openpgp.getUserKeys(userId)));
     }
 

@@ -44,21 +44,22 @@ class AccessListCommand implements yargs.CommandModule {
         if (!gitsecrets) return;
 
         // Retrieve IDs
-        let fileId;
-        let userId;
+        let filePath;
+        let userEmail;
         if (file) {
             const relativePath = git.getRelativePath(file as string);
             const fileObj = gitsecrets.files.getByPath(relativePath);
-            if (fileObj) fileId = fileObj.id;
+            if (fileObj) filePath = fileObj.path;
         }
         if (user) {
             const userObj = gitsecrets.users.getByEmail(user as string);
-            if (userObj) userId = userObj.id;
+            if (userObj) userEmail = userObj.email;
         }
 
         // List
-        const items = gitsecrets.access.fileAccess.findAll({ fileId, userId });
-        const table = Markdown.table(items, ['access_type', 'path', 'email', 'user_name', 'team', 'collection']);
+        const items = gitsecrets.access.fileAccess.findAll({ path: filePath, email: userEmail });
+        console.log(items);
+        const table = Markdown.table(items, ['access_type', 'file', 'user', 'team', 'collection']);
         console.log(`***** File Access *****\n\n${table}`);
     }
 }

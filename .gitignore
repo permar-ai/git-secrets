@@ -17,4 +17,5 @@ build
 tmp
 
 # git-secrets
-gitsecrets
+.gitsecrets
+examples/example.txt

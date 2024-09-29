@@ -14,7 +14,7 @@ import { Toast } from '@/utils';
 import { CMD } from './constants';
 import { Markdown, printResponse } from './utils';
 
-class TeamMemberListCommand implements yargs.CommandModule {
+class TeamUserListCommand implements yargs.CommandModule {
     command = 'list';
     describe = 'List team members.';
 
@@ -45,9 +45,7 @@ class TeamMemberListCommand implements yargs.CommandModule {
         let users = gitsecrets.teamUsersView.findAllUsers({ team: team });
         if (search) {
             const searchStr = search.toLowerCase();
-            users = users.filter(
-                (u) => u.email.toLowerCase().includes(searchStr) || u.name?.toLowerCase().includes(searchStr),
-            );
+            users = users.filter((u) => u.email.toLowerCase().includes(searchStr));
         }
 
         // Check any teams have been found
@@ -55,12 +53,12 @@ class TeamMemberListCommand implements yargs.CommandModule {
             Toast.warning(`No members found for team '${team}'` + (search ? ` with search query '${search}'.` : '.'));
             return;
         }
-        const table = Markdown.table(users, ['email', 'name']);
-        console.log(`***** Teams Members *****\n- Team: ${team}\n\n${table}`);
+        const table = Markdown.table(users, ['team', 'user']);
+        console.log(`***** Teams Users *****\n- Team: ${team}\n\n${table}`);
     }
 }
 
-class TeamMemberAddCommand implements yargs.CommandModule {
+class TeamUserAddCommand implements yargs.CommandModule {
     command = 'add';
     describe = 'Add member(s) to team(s).';
 
@@ -102,7 +100,7 @@ class TeamMemberAddCommand implements yargs.CommandModule {
     }
 }
 
-class TeamMemberRemoveCommand implements yargs.CommandModule {
+class TeamUserRemoveCommand implements yargs.CommandModule {
     command = 'remove';
     describe = 'Remove member(s) from team(s).';
 
@@ -139,9 +137,9 @@ export class TeamMemberCommands implements yargs.CommandModule {
 
     builder(args: yargs.Argv) {
         return args
-            .command(new TeamMemberListCommand())
-            .command(new TeamMemberAddCommand())
-            .command(new TeamMemberRemoveCommand())
+            .command(new TeamUserListCommand())
+            .command(new TeamUserAddCommand())
+            .command(new TeamUserRemoveCommand())
             .demandCommand(1, 'You need to specify an action (add, remove)');
     }
 

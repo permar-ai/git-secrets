@@ -156,25 +156,34 @@ create index if not exists idx_team on collection_teams (team_id, collection_id)
 
 -- ----------------------------------------------------- VIEWS ------------------------------------------------------ --
 create view if not exists team_users_view as
-select t.id    as team_id,
-       u.id    as user_id,
-       t.name  as team,
-       u.email as email,
-       u.name  as name
+select t.id          as team_id,
+       u.id          as user_id,
+       t.name        as team,
+       u.email       as user
 from team_users tu
          join
      users u on tu.user_id = u.id
          join
      teams t on tu.team_id = t.id;
 
+create view if not exists collection_files_view as
+select c.id          as collection_id,
+       f.id          as file_id,
+       c.name        as collection,
+       f.path        as file
+from collection_files cf
+         join
+     collections c on cf.collection_id = c.id
+         join
+     files f on cf.file_id = f.id;
+
 create view if not exists file_access_view as
 -- Relation file-user
 select f.id    as file_id,
        u.id    as user_id,
        'user'  as access_type,
-       f.path  as path,
-       u.email as email,
-       u.name  as user_name,
+       f.path  as file,
+       u.email as user,
        null    as team,
        null    as collection
 from file_users fu
@@ -187,9 +196,8 @@ union
 select f.id    as file_id,
        u.id    as user_id,
        'team'  as access_type,
-       f.path  as path,
-       u.email as email,
-       u.name  as user_name,
+       f.path  as file,
+       u.email as user,
        t.name  as team,
        null    as collection
 from file_teams ft
@@ -206,9 +214,8 @@ union
 select f.id         as file_id,
        u.id         as user_id,
        'collection' as access_type,
-       f.path       as path,
-       u.email      as email,
-       u.name       as user_name,
+       f.path       as file,
+       u.email      as user,
        null         as team,
        c.name       as collection
 from files f
@@ -225,9 +232,8 @@ union
 select f.id              as file_id,
        u.id              as user_id,
        'collection-team' as access_type,
-       f.path            as path,
-       u.email           as email,
-       u.name            as user_name,
+       f.path            as file,
+       u.email           as user,
        t.name            as team,
        c.name            as collection
 from files f

@@ -11,3 +11,5 @@
     -   [ ] Diff files using diff tool
 
 -   [ ] Merge tooling to resolve merge conflicts
+
+-   [ ] Publishing pipeline to npm test and npm

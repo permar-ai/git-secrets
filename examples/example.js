@@ -13,36 +13,35 @@
 const { GitSecrets } = require('../dist/index');
 
 (async () => {
-    const filepath = './example.txt';
-    console.log(process.cwd());
+    const gs = new GitSecrets();
 
-    const secrets = new GitSecrets();
-    console.log('repo', secrets.fs.dirs.repo);
+    // File
+    const filepath = './example.txt';
+    await gs.addFile({ path: filepath });
 
     // Create users, teams and files
-    await secrets.addUser({ email: 'anton@gmail.com', password: 'anton' });
-    await secrets.addUser({ email: 'ben@outlook.com', password: 'ben' });
-    await secrets.addUser({ email: 'chris@yahoo.com', password: 'chris' });
-    await secrets.addUser({ email: 'david@web.de', password: 'david' });
+    await gs.addUser({ email: 'anton@gmail.com', password: 'anton' });
+    await gs.addUser({ email: 'ben@gmail.com', password: 'ben' });
+    await gs.addUser({ email: 'chris@gmail.com', password: 'chris' });
+    await gs.addUser({ email: 'david@gmail.com', password: 'david' });
 
-    await secrets.addTeam({ name: 'admin', description: 'Admin users' });
-    await secrets.addTeam({ name: 'dev', description: 'Developer users' });
-    await secrets.addCollection({ name: 'test', description: 'Development environment' });
-    await secrets.addCollection({ name: 'stage', description: 'Production environment' });
-
-    await secrets.addFile({ path: filepath });
+    // Grouping
+    await gs.addTeam({ name: 'admin', description: 'Admin users' });
+    await gs.addTeam({ name: 'dev', description: 'Developer users' });
+    await gs.addCollection({ name: 'dev', description: 'Development environment' });
+    await gs.addCollection({ name: 'prod', description: 'Production environment' });
 
     // Relations
-    await secrets.addTeamUsers({ teams: 'beta', users: 'ben@outlook.com' });
-    await secrets.addTeamUsers({ teams: 'dev', users: 'david@web.de' });
-    await secrets.addCollectionFiles({ files: filepath, collections: 'test' });
+    await gs.addTeamUsers({ teams: 'admin', users: 'ben@gmail.com' });
+    await gs.addTeamUsers({ teams: 'dev', users: 'david@gmail.com' });
+    await gs.addCollectionFiles({ files: filepath, collections: 'dev' });
 
-    await secrets.addAccess({ files: filepath, users: 'anton@gmail.com', teams: 'beta' });
-    await secrets.addAccess({ collections: 'test', users: 'chris@yahoo.com', teams: 'dev' });
+    await gs.addAccess({ files: filepath, users: 'anton@gmail.com', teams: 'admin' });
+    await gs.addAccess({ collections: 'dev', users: 'chris@gmail.com', teams: 'dev' });
 
     // Encrypt file
-    await secrets.encryptFile({ path: filepath, email: 'anton@gmail.com', password: 'anton' });
+    await gs.encryptFile({ path: filepath, email: 'anton@gmail.com', password: 'anton' });
 
     // Decrypt file
-    await secrets.decryptFile({ path: filepath, email: 'david@web.de', password: 'david' });
+    await gs.decryptFile({ path: filepath, email: 'david@gmail.com', password: 'david' });
 })();

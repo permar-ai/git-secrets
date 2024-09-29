@@ -121,7 +121,7 @@ class FileUpdateCommand implements yargs.CommandModule {
 
         // Get new signatures
         const contentsSignature = gitsecrets.fs.getSignature(relativeUpdatedPath);
-        const accessSignature = gitsecrets.access.getSignature(file.id);
+        const accessSignature = gitsecrets.access.getSignature({ path: file.path });
         gitsecrets.files.update(file.id, { path: relativeUpdatedPath, contentsSignature, accessSignature });
         Toast.success('Successfully update file.');
     }
