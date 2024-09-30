@@ -13,3 +13,5 @@
 -   [ ] Merge tooling to resolve merge conflicts
 
 -   [ ] Publishing pipeline to npm test and npm
+
+-   [ ] Settings + local settings + retrieval function, uspport 'test' mode to decrypt to '.decrypted' instead of original file

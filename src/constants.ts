@@ -9,9 +9,17 @@
 // Default files
 export const GIT_IGNORE = `!keys
 !keys/*.public
-!keys/*.private
 !data.db
+!settings.json
+keys/*.private
 local.settings.json
 `;
+export const SETTINGS = {
+    mode: 'live', // or test
+    password: {
+        mode: 'auto',
+        length: '32',
+    },
+};
 export const LOCAL_SETTINGS = {};
 export const SECRET_EXT = '.secret';

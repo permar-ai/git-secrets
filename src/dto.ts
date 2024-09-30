@@ -8,6 +8,7 @@
 
 export type MaybeNull<T> = T | null | undefined;
 export type MaybeEmpty<T> = T | {};
+export type MaybeArray<T> = T | Array<T>;
 
 type Success<T> = {
     success: boolean;

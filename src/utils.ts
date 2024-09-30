@@ -59,3 +59,32 @@ export class Toast {
         console.log(chalk.red(message));
     }
 }
+
+type FlattenedObject = { [key: string]: any };
+
+export function flatten(obj: { [key: string]: any }, prefix = '', separator = '.') {
+    return Object.keys(obj).reduce((acc: FlattenedObject, k) => {
+        const pre = prefix.length ? prefix + separator : '';
+
+        // Arrays
+        if (Array.isArray(obj[k])) {
+            obj[k].forEach((item: any, index: number) => {
+                if (typeof item === 'object' && item !== null) {
+                    Object.assign(acc, flatten(item, `${pre}${k}[${index}]`, separator));
+                } else {
+                    acc[`${pre}${k}[${index}]`] = item;
+                }
+            });
+        }
+        // Objects
+        else if (typeof obj[k] === 'object' && obj[k] !== null) {
+            Object.assign(acc, flatten(obj[k], pre + k, separator));
+        }
+        // Primitives
+        else {
+            acc[pre + k] = obj[k];
+        }
+
+        return acc;
+    }, {});
+}

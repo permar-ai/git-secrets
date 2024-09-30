@@ -12,7 +12,7 @@ import { getGitSecrets } from '@/index';
 import { Toast } from '@/utils';
 
 import { CMD } from './constants';
-import { TeamMemberCommands } from './teamUsers';
+import { TeamUserCommands } from './teamUsers';
 import { Markdown, printResponse } from './utils';
 
 class TeamListCommand implements yargs.CommandModule {
@@ -178,7 +178,7 @@ export class TeamCommands implements yargs.CommandModule {
             .command(new TeamAddCommand())
             .command(new TeamUpdateCommand())
             .command(new TeamRemoveCommand())
-            .command(new TeamMemberCommands())
+            .command(new TeamUserCommands())
             .demandCommand(1, 'You need to specify an action (add, update, remove)');
     }
 

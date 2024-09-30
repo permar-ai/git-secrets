@@ -19,3 +19,4 @@ tmp
 # git-secrets
 .gitsecrets
 examples/example.txt
+examples/example2.txt

@@ -24,5 +24,5 @@ export interface CryptoOperationInput {
     path: string;
     password: string;
     publicKeys: PublicKey[];
-    userKeys: KeyPair;
+    armoredPrivateKey: string;
 }

@@ -9,13 +9,11 @@
 import * as yargs from 'yargs';
 
 import { getGitSecrets } from '@/index';
-import { Git } from '@/git';
 import { Toast } from '@/utils';
 
 import { CMD } from './constants';
+import { CollectionFileCommands } from './collectionFiles';
 import { Markdown, printResponse } from './utils';
-
-const git = new Git();
 
 class CollectionListCommand implements yargs.CommandModule {
     command = 'list';
@@ -184,6 +182,7 @@ export class CollectionCommands implements yargs.CommandModule {
             .command(new CollectionAddCommand())
             .command(new CollectionUpdateCommand())
             .command(new CollectionRemoveCommand())
+            .command(new CollectionFileCommands())
             .demandCommand(1, 'You need to specify an action (list, add, update, remove)');
     }
 

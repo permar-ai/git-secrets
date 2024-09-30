@@ -20,20 +20,32 @@ export class TeamUsersView {
         this.view = 'team_users_view';
     }
 
-    findAllUsers({ team }: { team: string }): TeamUserDto[] {
+    findAll({ team, user }: { team?: string; user?: string }): TeamUserDto[] {
+        // Return all
+        if (!team && !user) {
+            const cmd = `SELECT *
+                         FROM ${this.view}
+                         ORDER BY team, user;`;
+            return this.db.prepare(cmd).all() as TeamUserDto[];
+        }
+
+        // Filtered results
+        const variables = [team, user];
+        const whereStatements = ['team = :team', 'user = :user'];
+        const whereStmt = whereStatements.filter((_, idx) => variables[idx]).join(' AND ');
         const cmd = `SELECT *
-                     from ${this.view}
-                     WHERE team = :team
-                     ORDER BY team, email;`;
-        return this.db.prepare(cmd).all({ team: team }) as TeamUserDto[];
+                     FROM ${this.view}
+                     WHERE ${whereStmt}
+                     ORDER BY team, user;`;
+        return this.db.prepare(cmd).all({ team: team, user: user }) as TeamUserDto[];
     }
 
-    findAllTeams({ email }: { email: string }): TeamUserDto[] {
-        const cmd = `SELECT *
-                     from ${this.view}
-                     WHERE email = :email
-                     ORDER BY team, email;`;
-        return this.db.prepare(cmd).all({ email: email }) as TeamUserDto[];
+    findAllUsers({ team }: { team: string }): TeamUserDto[] {
+        return this.findAll({ team: team });
+    }
+
+    findAllTeams({ user }: { user: string }): TeamUserDto[] {
+        return this.findAll({ user: user });
     }
 }
 

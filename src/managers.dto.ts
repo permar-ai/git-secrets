@@ -6,12 +6,8 @@
  *
  */
 
-import { PublicKey } from 'openpgp';
-
-import { User, File } from './db/tables.dto';
-import { KeyPair } from './encryption.dto';
-
-type MaybeArray<T> = T | Array<T>;
+import { MaybeArray } from '@/dto';
+import { User } from './db/tables.dto';
 
 export interface UserAdd {
     email: string;
@@ -50,13 +46,32 @@ export interface FileAccessAdd {
     teams?: MaybeArray<string> | undefined; // Team names
 }
 
-export interface CryptoOpInput {
-    path: string;
+interface CryptoOperationDto {
     email: string;
     password: string;
+    modified?: boolean;
+}
+
+export interface CryptoSingleInput extends CryptoOperationDto {
+    path: string;
+}
+
+export interface CryptoAllInput extends CryptoOperationDto {}
+
+export interface FileSignaturesDto {
+    contents: string;
+    access: string;
 }
 
 export interface UserKeyUpdate {
     email: string;
     password: string;
+}
+
+interface UserSensitive extends User {
+    password?: string;
+}
+
+export interface LocalSettingsDto {
+    user?: UserSensitive;
 }

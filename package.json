@@ -23,6 +23,7 @@
         "chalk": "^4.1.2",
         "child_process": "^1.0.2",
         "enquirer": "^2.4.1",
+        "lodash": "^4.17.21",
         "openpgp": "^5.11.2",
         "reflect-metadata": "^0.2.2",
         "uuid": "^10.0.0",
@@ -31,6 +32,7 @@
     "devDependencies": {
         "@types/better-sqlite3": "^7.6.11",
         "@types/jest": "^29.5.13",
+        "@types/lodash": "^4.17.9",
         "@types/node": "^22.7.3",
         "@types/uuid": "^10.0.0",
         "@types/yargs": "^17.0.33",

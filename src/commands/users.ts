@@ -6,6 +6,7 @@
  *
  */
 
+import crypto from 'crypto';
 import * as yargs from 'yargs';
 import { prompt } from 'enquirer';
 
@@ -87,6 +88,9 @@ class UserAddCommand implements yargs.CommandModule {
             Toast.warning(`User with email '${email}' already exist.\nTry using the '${CMD} user update' command.`);
             return;
         }
+
+        // TODO: Get settings, if password is set to auto, auto-generate password and let user know
+        const randomString = crypto.randomBytes(32).toString('hex');
 
         // New user
         const answers = await prompt<{ password: string }>([

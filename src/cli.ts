@@ -18,6 +18,7 @@ import { CollectionCommands } from './commands/collections';
 import { AccessCommands } from './commands/access';
 import { HideCommand, ShowCommand } from './commands/main';
 import { KeysCommands } from './commands/keys';
+import { SettingsCommands } from './commands/settings';
 
 yargs
     .usage('Usage: $0 <command> [options]')
@@ -26,10 +27,11 @@ yargs
     .command(new ShowCommand())
     .command(new UserCommands())
     .command(new TeamCommands())
-    .command(new CollectionCommands())
     .command(new FileCommands())
+    .command(new CollectionCommands())
     .command(new AccessCommands())
     .command(new KeysCommands())
+    .command(new SettingsCommands())
     .recommendCommands()
     .demandCommand(1)
     .strict()

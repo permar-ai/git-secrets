@@ -58,7 +58,6 @@ class AccessListCommand implements yargs.CommandModule {
 
         // List
         const items = gitsecrets.access.fileAccess.findAll({ path: filePath, email: userEmail });
-        console.log(items);
         const table = Markdown.table(items, ['access_type', 'file', 'user', 'team', 'collection']);
         console.log(`***** File Access *****\n\n${table}`);
     }
@@ -111,7 +110,7 @@ class AccessAddCommand implements yargs.CommandModule {
         const response = await gitsecrets.addAccess({ files: file, collections: collection, users: user, teams: team });
         printResponse({
             response: response,
-            success: `Successfully added access to files.`,
+            success: `Successfully added access to files / collections.`,
             cmd: `Try using '${CMD} file list' to list files, '${CMD} user list' to list users or '${CMD} team list to list teams.`,
         });
     }
@@ -126,7 +125,13 @@ class AccessRemoveCommand implements yargs.CommandModule {
             .option('file', {
                 alias: 'f',
                 describe: 'File path (flag can be used multiple times)',
-                demandOption: true,
+                demandOption: false,
+                type: 'array',
+            })
+            .option('collection', {
+                alias: 'c',
+                describe: 'Collection name (flag can be used multiple times)',
+                demandOption: false,
                 type: 'array',
             })
             .option('user', {
@@ -144,13 +149,28 @@ class AccessRemoveCommand implements yargs.CommandModule {
     }
 
     async handler(args: yargs.Arguments) {
-        // Client
-        const { file, user, team } = args as unknown as { file: string[]; user?: string[]; team?: string[] };
+        // Init
+        const { file, collection, user, team } = args as unknown as {
+            file?: string[];
+            collection?: string[];
+            user?: string[];
+            team?: string[];
+        };
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
-        // TODO: Implement method
-        Toast.error('Method not yet implemented');
+        // Execute
+        const response = await gitsecrets.removeAccess({
+            files: file,
+            collections: collection,
+            users: user,
+            teams: team,
+        });
+        printResponse({
+            response: response,
+            success: `Successfully removed access to files / collections.`,
+            cmd: `Try using '${CMD} file list' to list files, '${CMD} user list' to list users or '${CMD} team list to list teams.`,
+        });
     }
 }
 

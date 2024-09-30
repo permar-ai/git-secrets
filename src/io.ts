@@ -18,6 +18,7 @@ const GIT_SECRETS_DIR = '.gitsecrets';
 const DATA_DIR = 'data';
 const KEYS_DIR = 'keys';
 const DATA_SIGNATURES_FILENAME = 'signatures.json';
+const SETTINGS_FILENAME = 'settings.json';
 const LOCAL_SETTINGS_FILENAME = 'local.settings.json';
 const DB_FILENAME = 'data.db';
 
@@ -28,7 +29,7 @@ const git = new Git();
 export class InternalFileSystem {
     readonly dirs: { repo: string; gitsecrets: string; keys: string; data: string };
     readonly files: {
-        settings?: string;
+        settings: string;
         localSettings: string;
         db: string;
         dataSignatures: string;
@@ -45,9 +46,12 @@ export class InternalFileSystem {
             keys: path.resolve(repoDir, GIT_SECRETS_DIR, KEYS_DIR),
             data: path.resolve(repoDir, GIT_SECRETS_DIR, DATA_DIR),
         };
+
+        const gs = this.dirs.gitsecrets;
         this.files = {
-            localSettings: path.resolve(this.dirs.gitsecrets, LOCAL_SETTINGS_FILENAME),
-            db: path.resolve(this.dirs.gitsecrets, DB_FILENAME),
+            settings: path.resolve(gs, SETTINGS_FILENAME),
+            localSettings: path.resolve(gs, LOCAL_SETTINGS_FILENAME),
+            db: path.resolve(gs, DB_FILENAME),
             dataSignatures: path.resolve(this.dirs.data, DATA_SIGNATURES_FILENAME),
             publicKey: (userId: string) => {
                 return path.resolve(this.dirs.keys, `${userId}.public`);
@@ -59,9 +63,9 @@ export class InternalFileSystem {
     }
 
     isInitialized(): boolean {
-        const initialized = false;
-        if (!fs.existsSync(this.dirs.gitsecrets)) return initialized;
+        if (!fs.existsSync(this.dirs.gitsecrets)) return false;
         if (!fs.existsSync(this.dirs.keys)) return false;
+        if (!fs.existsSync(this.files.settings)) return false;
         if (!fs.existsSync(this.files.localSettings)) return false;
         if (!fs.existsSync(this.files.db)) return false;
         return true;

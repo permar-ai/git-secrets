@@ -8,7 +8,7 @@
 
 import * as yargs from 'yargs';
 
-import { SetupManager } from '@/managers';
+import { SetupManager } from '@/setup';
 import { Toast } from '@/utils';
 
 import { CMD } from './constants';

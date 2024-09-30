@@ -16,7 +16,7 @@ import { Markdown, printResponse } from './utils';
 
 class TeamUserListCommand implements yargs.CommandModule {
     command = 'list';
-    describe = 'List team members.';
+    describe = 'List team users.';
 
     builder(args: yargs.Argv) {
         return args
@@ -50,7 +50,7 @@ class TeamUserListCommand implements yargs.CommandModule {
 
         // Check any teams have been found
         if (users.length === 0) {
-            Toast.warning(`No members found for team '${team}'` + (search ? ` with search query '${search}'.` : '.'));
+            Toast.warning(`No users found for team '${team}'` + (search ? ` with search query '${search}'.` : '.'));
             return;
         }
         const table = Markdown.table(users, ['team', 'user']);
@@ -60,7 +60,7 @@ class TeamUserListCommand implements yargs.CommandModule {
 
 class TeamUserAddCommand implements yargs.CommandModule {
     command = 'add';
-    describe = 'Add member(s) to team(s).';
+    describe = 'Add user(s) to team(s).';
 
     builder(args: yargs.Argv) {
         return args
@@ -89,12 +89,7 @@ class TeamUserAddCommand implements yargs.CommandModule {
         const response = await gitsecrets.addTeamUsers({ teams: team, users: user });
         printResponse({
             response: response,
-            success:
-                'Successfully added user' +
-                (user.length > 1 ? 's' : '') +
-                ' to team' +
-                (team.length > 1 ? 's' : '') +
-                '.',
+            success: 'Successfully added users to teams.',
             cmd: `Try using '${CMD} team list' to list teams or '${CMD} user list' to list users`,
         });
     }
@@ -102,7 +97,7 @@ class TeamUserAddCommand implements yargs.CommandModule {
 
 class TeamUserRemoveCommand implements yargs.CommandModule {
     command = 'remove';
-    describe = 'Remove member(s) from team(s).';
+    describe = 'Remove user(s) from team(s).';
 
     builder(args: yargs.Argv) {
         return args
@@ -126,21 +121,26 @@ class TeamUserRemoveCommand implements yargs.CommandModule {
         const gitsecrets = getGitSecrets();
         if (!gitsecrets) return;
 
-        // TODO: Implement method
-        Toast.error('Method not yet implemented');
+        // Exec
+        const response = await gitsecrets.removeTeamUsers({ teams: team, users: user });
+        printResponse({
+            response: response,
+            success: 'Successfully removed users from teams.',
+            cmd: `Try using '${CMD} team list' to list teams or '${CMD} user list' to list users`,
+        });
     }
 }
 
-export class TeamMemberCommands implements yargs.CommandModule {
-    command = 'member <action>';
-    describe = 'Commands to add and remove team members.';
+export class TeamUserCommands implements yargs.CommandModule {
+    command = 'user <action>';
+    describe = 'Commands to list, add and remove team users.';
 
     builder(args: yargs.Argv) {
         return args
             .command(new TeamUserListCommand())
             .command(new TeamUserAddCommand())
             .command(new TeamUserRemoveCommand())
-            .demandCommand(1, 'You need to specify an action (add, remove)');
+            .demandCommand(1, 'You need to specify an action (list, add, remove)');
     }
 
     async handler(args: yargs.Arguments) {}
